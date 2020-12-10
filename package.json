@@ -1,0 +1,23 @@
+{
+  "name": "dex-arbitrage-bot",
+  "version": "0.0.0",
+  "description": "A bot monitoring and executing arbitrage opportunities on decentralized exchanges",
+  "engines": {
+    "node": "14.15.1"
+  },
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon --exec babel-node src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "express": "^4.15.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.12.10",
+    "@babel/node": "^7.12.10",
+    "@babel/preset-env": "^7.12.10",
+    "nodemon": "^2.0.6"
+  }
+}
