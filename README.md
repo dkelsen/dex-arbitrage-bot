@@ -13,7 +13,10 @@ $ ganache-cli -f <Infura Endpoint Link> -u <Ethereum Address>
 https://mainnet.infura.io/v3/8d10330382da446c76d5d7b37123d802
 * Ethereum Address: Foreign account to be unlocked in the fork, i.e. get unrestricted access to its funds.
 
-Last used mainnet fork mnemonic: `section faculty nephew hint coyote fashion twelve sound fatigue mandate wide unit`
+Last used mainnet fork mnemonic: `fancy slow uncover journey heart bright twenty dentist damage never eye pumpkin`
+
+### Ganache Related Bug
+In some cases, transactions on the forked blockchain may fail to execute. This bug is most likely caused by an underlying issue in Ganache. It's recommended to start fresh and create a new fork.
 
 ## Debugging
 ```
