@@ -8,7 +8,8 @@
   "main": "index.js",
   "scripts": {
     "start": "nodemon --exec babel-node src/index.js",
-    "test": "truffle test"
+    "fork": "ganache-cli -f ${RPC_URL} -i 1 -p 7545",
+    "test": "truffle test --network"
   },
   "dependencies": {
     "dotenv": "^8.2.0",
