@@ -8,8 +8,14 @@
   "main": "index.js",
   "scripts": {
     "start": "nodemon --exec babel-node src/index.js",
-    "fork": "ganache-cli -f ${RPC_URL} -i 1 -p 7545",
+    "fork": "ganache-cli -f \"${npm_package_config_infura_url}\" -i 1 -p 7545 -u \"${npm_package_config_unlocked_address}\"",
+    "deploy": "truffle compile && truffle migrate --reset --network",
+    "console": "truffle console --network",
     "test": "truffle test --network"
+  },
+  "config": {
+    "infura_url": "https://mainnet.infura.io/v3/8d90630985da446b84d5d7b39383d802",
+    "unlocked_address": "0x7AD1243179857B04763ECbCCe1F92C8572d46255"
   },
   "dependencies": {
     "dotenv": "^8.2.0",

@@ -15,17 +15,30 @@ contract('Arbitrage', async (accounts) => {
   })
 
   describe('Deposits and withdrawals', async () => {
-    let contractBalance
+    let etherBalance
+    let wethBalance
 
-    it('Should allow deposits', async () => {
+    it('Should allow regular Ether deposits', async () => {
       await arbitrage.send(toWei('5'))
-      contractBalance = await web3.eth.getBalance(contractAddress)
-      assert.equal(contractBalance, toWei('5'))
+      etherBalance = await web3.eth.getBalance(contractAddress)
+      assert.equal(etherBalance, toWei('5'))
+    })
+
+    it('Should convert Ether to Weth', async () => {
+      await arbitrage.depositWeth({ value: toWei('500') })
+      wethBalance = await arbitrage.getWethBalance()
+      assert.equal(wethBalance, toWei('500'))
+    })
+
+    it('Should convert Weth to Ether', async () => {
+      await arbitrage.withdrawWeth(toWei('500'))
+      wethBalance = await arbitrage.getWethBalance()
+      assert.equal(wethBalance, toWei('0'))
     })
 
     it('Should not allow other users to withdraw Ether', async () => {
       try {
-        await arbitrage.withdrawEther(toWei('5'), { from: accounts[1] })
+        await arbitrage.withdrawEther(toWei('505'), { from: accounts[1] })
       } catch (error) {
         assert.include(error.message, "Wait a minute... You're not the owner of this contract!")
         return
@@ -34,11 +47,9 @@ contract('Arbitrage', async (accounts) => {
     })
 
     it('Should allow the contract owner to withdraw Ether', async () => {
-      await arbitrage.withdrawEther(toWei('5'))
-      contractBalance = await web3.eth.getBalance(contractAddress)
-      assert.equal(contractBalance, toWei('0'))
+      await arbitrage.withdrawEther(toWei('505'))
+      etherBalance = await web3.eth.getBalance(contractAddress)
+      assert.equal(etherBalance, toWei('0'))
     })
   })
-
-
 })
