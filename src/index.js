@@ -6,9 +6,10 @@ import Web3 from 'web3'
 import ZRX_EXCHANGE_ABI from './abis/zrx.json'
 import ONE_SPLIT_ABI from './abis/oneSplit.json'
 import { now, logArbitrageCheck } from './utils'
+import { sendNotificationEmail } from './email'
 
 /* Application Setup */
-const app = express();
+const app = express()
 const PORT = process.env.PORT
 
 const ASSET_ADDRESSES = {
@@ -23,11 +24,11 @@ const EXCHANGE_ADDRESSES = {
 const web3 = new Web3(process.env.RPC_URL)
 web3.eth.accounts.wallet.add(process.env.PRIVATE_KEY)
 const zrxExchangeContract = new web3.eth.Contract(ZRX_EXCHANGE_ABI, EXCHANGE_ADDRESSES.ZRX)
-const oneSplitContract = new web3.eth.Contract(ONE_SPLIT_ABI, EXCHANGE_ADDRESSES.ONE_SPLIT);
+const oneSplitContract = new web3.eth.Contract(ONE_SPLIT_ABI, EXCHANGE_ADDRESSES.ONE_SPLIT)
 
 app.listen(PORT, () =>
   console.log(`NodeJS app listening on port ${PORT}!`),
-);
+)
 
 /* Function Definitions */
 const checkZrxOrderBook = async (baseAssetSymbol, quoteAssetSymbol) => {
@@ -106,15 +107,19 @@ const checkArbitrage = async ({ bidOrder: { order: zrxOrder }, assetOrder }) => 
   const netProfit = outputAssetAmount.sub(inputAssetAmount).sub(estimatedGasFee)
   const isProfitable = netProfit.gt(new web3.utils.BN(0))
 
-  logArbitrageCheck({
+  const loggingInput = {
     isProfitable,
     assetOrder,
     inputAssetAmount,
     outputAssetAmount,
     netProfit,
     web3
-  })
-  
+  }
+
+  /* Logging And Reporting */
+  logArbitrageCheck(loggingInput)
+  if (isProfitable) sendNotificationEmail(loggingInput)
+
   return isProfitable
 }
 
