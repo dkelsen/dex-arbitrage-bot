@@ -1,5 +1,5 @@
 const Arbitrage = artifacts.require('Arbitrage')
-const { toWei } = require('./utils')
+const { toWei, wethAddress } = require('./utils')
 
 contract('Arbitrage', async (accounts) => {
   let arbitrage
@@ -50,6 +50,20 @@ contract('Arbitrage', async (accounts) => {
       await arbitrage.withdrawEther(toWei('505'))
       etherBalance = await web3.eth.getBalance(contractAddress)
       assert.equal(etherBalance, toWei('0'))
+    })
+  })
+
+  describe('Flashloan', async () => {
+    it('Should execute properly', async () => {
+      try {
+        await arbitrage.depositWeth({ value: toWei('50') })
+        await arbitrage.initiateFlashLoan(wethAddress, web3.utils.toWei('5000', 'ether'))
+        const wethBalance = await arbitrage.getWethBalance()
+        assert.equal(wethBalance, toWei('48'))
+      } catch (error) {
+        console.log(error)
+        assert(false)
+      }
     })
   })
 })

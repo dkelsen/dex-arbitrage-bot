@@ -1,22 +1,13 @@
 /* SPDX-License-Identifier: MIT */
 pragma solidity >=0.4.22 <0.8.0;
+pragma abicoder v2;
 
-/* A partial IERC20 interface */
-interface IERC20 {
-  function balanceOf(address owner) external view returns (uint256);
-  function approve(address spender, uint256 amount) external returns (bool);
-  function transfer(address to, uint256 amount) external returns (bool);
-}
+import "./Shared.sol";
+import "./FlashLoan.sol";
 
-/* A partial WETH interface */
-interface IWETH is IERC20 {
-  function deposit() external payable;
-  function withdraw(uint256 _amount) external;
-}
-
-contract Arbitrage {
+contract Arbitrage is DyDxFlashLoan {
 	address payable OWNER;
-  IWETH WETHCONTRACT = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+	IWETH WETH_CONTRACT = IWETH(WETH);
 
 	constructor() {
 		OWNER = msg.sender;
@@ -30,7 +21,7 @@ contract Arbitrage {
 		_;
 	}
 
-  /* Deposits And Withdrawals */
+	/* Deposits And Withdrawals */
 	function withdrawEther(uint256 _amount) public onlyOwner {
 		require(
 			_amount <= address(this).balance,
@@ -38,19 +29,47 @@ contract Arbitrage {
 		);
 		msg.sender.transfer(_amount);
 	}
-  
-  function withdrawWeth(uint256 _amount) external onlyOwner {
-    WETHCONTRACT.withdraw(_amount);
-  }
 
-  function depositWeth() external payable {
-    WETHCONTRACT.deposit{value: msg.value}();
-  }
+	function withdrawWeth(uint256 _amount) external onlyOwner {
+		WETH_CONTRACT.withdraw(_amount);
+	}
 
-  function getWethBalance() external view returns (uint256) {
-    return WETHCONTRACT.balanceOf(address(this));
-  }
+	function depositWeth() external payable {
+		WETH_CONTRACT.deposit{ value: msg.value }();
+	}
+
+	function getWethBalance() external view returns (uint256) {
+		return WETH_CONTRACT.balanceOf(address(this));
+	}
 
 	/* Allow This Contract To Receive Ether */
 	receive() external payable {}
+
+	/* Function Invoked By DyDx */
+	function callFunction(
+		address sender,
+		Account.Info memory accountInfo,
+		bytes memory data
+	) external view override {
+		// Decode the passed variables from the data object
+		(
+			// This must match the variables defined in the Call object above
+			address payable actualSender,
+			uint256 loanAmount
+		) = abi.decode(data, (address, uint256));
+
+		// We now have a WETH balance of loanAmount. The logic for what we
+		// want to do with it goes here. The code below is just there in case
+		// it's useful.
+
+		// It can be useful for debugging to have a verbose error message when
+		// the loan can't be paid, since dydx doesn't provide one
+		require(
+			WETH_CONTRACT.balanceOf(address(this)) > loanAmount + 2,
+			"Not enough funds to repay the flash loan!"
+		);
+
+		// TODO: Encode your logic here
+		// E.g. arbitrage, liquidate accounts, etc
+	}
 }
