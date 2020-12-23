@@ -6,23 +6,10 @@ import "./Shared.sol";
 import "./FlashLoan.sol";
 
 contract Arbitrage is DyDxFlashLoan {
-	address payable OWNER;
 	IWETH WETH_CONTRACT = IWETH(WETH);
 
-	constructor() {
-		OWNER = msg.sender;
-	}
-
-	modifier onlyOwner() {
-		require(
-			msg.sender == OWNER,
-			"Wait a minute... You're not the owner of this contract!"
-		);
-		_;
-	}
-
 	/* Deposits And Withdrawals */
-	function withdrawEther(uint256 _amount) public onlyOwner {
+	function withdrawEther(uint256 _amount) external onlyOwner {
 		require(
 			_amount <= address(this).balance,
 			"Specified withdrawal amount exceeds the available funds."
@@ -30,16 +17,31 @@ contract Arbitrage is DyDxFlashLoan {
 		msg.sender.transfer(_amount);
 	}
 
-	function withdrawWeth(uint256 _amount) external onlyOwner {
+	function withdrawToken(address _tokenAddress, uint256 _amount)
+		external
+		onlyOwner
+	{
+		require(
+			_amount <= IERC20(_tokenAddress).balanceOf(address(this)),
+			"Specified withdrawal amount exceeds the available funds."
+		);
+		IERC20(_tokenAddress).transfer(OWNER, _amount);
+	}
+
+	function convertWethToEther(uint256 _amount) external onlyOwner {
 		WETH_CONTRACT.withdraw(_amount);
 	}
 
-	function depositWeth() external payable {
+	function convertEtherToWeth() external payable {
 		WETH_CONTRACT.deposit{ value: msg.value }();
 	}
 
-	function getWethBalance() external view returns (uint256) {
-		return WETH_CONTRACT.balanceOf(address(this));
+	function getTokenBalance(address _tokenAddress)
+		external
+		view
+		returns (uint256)
+	{
+		return IERC20(_tokenAddress).balanceOf(address(this));
 	}
 
 	/* Allow This Contract To Receive Ether */
@@ -50,7 +52,7 @@ contract Arbitrage is DyDxFlashLoan {
 		address sender,
 		Account.Info memory accountInfo,
 		bytes memory data
-	) external view override {
+	) external view override onlyDyDx {
 		// Decode the passed variables from the data object
 		(
 			// This must match the variables defined in the Call object above

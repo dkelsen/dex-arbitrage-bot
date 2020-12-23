@@ -71,6 +71,7 @@ abstract contract DyDxFlashLoan is ICallee {
 	address public USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 	address public DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
 	mapping(address => uint256) internal tokens;
+	address payable OWNER;
 
 	// The dydx Solo Margin contract, as can be found here:
 	// https://github.com/dydxprotocol/solo/blob/master/migrations/deployed.json
@@ -82,6 +83,23 @@ abstract contract DyDxFlashLoan is ICallee {
 		tokens[SAI] = 2;
 		tokens[USDC] = 3;
 		tokens[DAI] = 4;
+		OWNER = msg.sender;
+	}
+
+	modifier onlyDyDx() {
+		require(
+			msg.sender == address(soloMargin),
+			"Wait a minute... You're not the dydx Solo Margin contract!"
+		);
+		_;
+	}
+
+	modifier onlyOwner() {
+		require(
+			msg.sender == OWNER,
+			"Wait a minute... You're not the owner of this contract!"
+		);
+		_;
 	}
 
 	function tokenToMarketId(address _token) public view returns (uint256) {
@@ -91,7 +109,10 @@ abstract contract DyDxFlashLoan is ICallee {
 	}
 
 	/* The Function Called By The Arbitrage Bot */
-	function initiateFlashLoan(address _token, uint256 _loanAmount) external {
+	function initiateFlashLoan(address _token, uint256 _loanAmount)
+		external
+		onlyOwner
+	{
 		IERC20(_token).approve(address(soloMargin), uint256(-1));
 
 		Actions.ActionArgs[] memory operations = new Actions.ActionArgs[](3);

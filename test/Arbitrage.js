@@ -25,43 +25,58 @@ contract('Arbitrage', async (accounts) => {
     })
 
     it('Should convert Ether to Weth', async () => {
-      await arbitrage.depositWeth({ value: toWei('500') })
-      wethBalance = await arbitrage.getWethBalance()
+      await arbitrage.convertEtherToWeth({ value: toWei('500') })
+      wethBalance = await arbitrage.getTokenBalance(wethAddress)
       assert.equal(wethBalance, toWei('500'))
     })
 
     it('Should convert Weth to Ether', async () => {
-      await arbitrage.withdrawWeth(toWei('500'))
-      wethBalance = await arbitrage.getWethBalance()
-      assert.equal(wethBalance, toWei('0'))
+      await arbitrage.convertWethToEther(toWei('300'))
+      wethBalance = await arbitrage.getTokenBalance(wethAddress)
+      assert.equal(wethBalance, toWei('200'))
     })
 
     it('Should not allow other users to withdraw Ether', async () => {
       try {
-        await arbitrage.withdrawEther(toWei('505'), { from: accounts[1] })
+        await arbitrage.withdrawEther(toWei('205'), { from: accounts[1] })
       } catch (error) {
-        assert.include(error.message, "Wait a minute... You're not the owner of this contract!")
+        assert.include(error.message, 'Wait a minute... You\'re not the owner of this contract!')
         return
       }
       assert(false)
     })
 
     it('Should allow the contract owner to withdraw Ether', async () => {
-      await arbitrage.withdrawEther(toWei('505'))
+      await arbitrage.withdrawEther(toWei('305'))
       etherBalance = await web3.eth.getBalance(contractAddress)
       assert.equal(etherBalance, toWei('0'))
+    })
+
+    it('Should allow the contract owner to withdraw Weth', async () => {
+      await arbitrage.withdrawToken(wethAddress, toWei('200'))
+      wethBalance = await arbitrage.getTokenBalance(wethAddress)
+      assert.equal(wethBalance, toWei('0'))
     })
   })
 
   describe('Flashloan', async () => {
+    it('Should fail as expected', async () => {
+      try {
+        await arbitrage.initiateFlashLoan(wethAddress, web3.utils.toWei('5000', 'ether'))
+      } catch (error) {
+        assert.include(error.message, 'Not enough funds to repay the flash loan!')
+        return
+      }
+      assert(false)
+    })
+
     it('Should execute properly', async () => {
       try {
-        await arbitrage.depositWeth({ value: toWei('50') })
+        await arbitrage.convertEtherToWeth({ value: toWei('50') })
         await arbitrage.initiateFlashLoan(wethAddress, web3.utils.toWei('5000', 'ether'))
-        const wethBalance = await arbitrage.getWethBalance()
+        const wethBalance = await arbitrage.getTokenBalance(wethAddress)
         assert.equal(wethBalance, toWei('48'))
       } catch (error) {
-        console.log(error)
         assert(false)
       }
     })
