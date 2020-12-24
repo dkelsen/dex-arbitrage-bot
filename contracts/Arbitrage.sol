@@ -4,9 +4,16 @@ pragma abicoder v2;
 
 import "./Shared.sol";
 import "./FlashLoan.sol";
+import "./OneSplit.sol";
 
 contract Arbitrage is DyDxFlashLoan {
 	IWETH WETH_CONTRACT = IWETH(WETH);
+
+	/* OneSplit Configuration */
+	address ONESPLIT_ADDRESS = 0xC586BeF4a0992C495Cf22e1aeEE4E446CECDee0E;
+	IOneSplit ONESPLIT_CONTRACT = IOneSplit(ONESPLIT_ADDRESS);
+	uint256 PARTS = 10;
+	uint256 FLAGS = 0;
 
 	/* Deposits And Withdrawals */
 	function withdrawEther(uint256 _amount) external onlyOwner {
@@ -44,8 +51,30 @@ contract Arbitrage is DyDxFlashLoan {
 		return IERC20(_tokenAddress).balanceOf(address(this));
 	}
 
-	/* Allow This Contract To Receive Ether */
 	receive() external payable {}
+
+	/* OneSplit Swap Trade */
+	function swapOnOneSplit(
+		address _fromToken,
+		address _toToken,
+		uint256 _amount,
+		uint256 _minReturn,
+		uint256[] memory _distribution
+	) external onlyOwner {
+		IERC20(_fromToken).approve(ONESPLIT_ADDRESS, _amount);
+
+		ONESPLIT_CONTRACT.swap(
+			IERC20(_fromToken),
+			IERC20(_toToken),
+			_amount,
+			_minReturn,
+			_distribution,
+			FLAGS
+		);
+
+		/* Reset Approval */
+		IERC20(_fromToken).approve(ONESPLIT_ADDRESS, 0);
+	}
 
 	/* Function Invoked By DyDx */
 	function callFunction(

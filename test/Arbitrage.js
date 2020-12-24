@@ -1,5 +1,12 @@
 const Arbitrage = artifacts.require('Arbitrage')
-const { toWei, wethAddress } = require('./utils')
+const ONE_SPLIT_ABI = require('../src/abis/oneSplit.json')
+const { 
+  toWei,
+  toEther,
+  wethAddress,
+  daiAddress,
+  oneSplitExchange
+} = require('./utils')
 
 contract('Arbitrage', async (accounts) => {
   let arbitrage
@@ -62,7 +69,7 @@ contract('Arbitrage', async (accounts) => {
   describe('Flashloan', async () => {
     it('Should fail as expected', async () => {
       try {
-        await arbitrage.initiateFlashLoan(wethAddress, web3.utils.toWei('5000', 'ether'))
+        await arbitrage.initiateFlashLoan(wethAddress, toEther('5000'))
       } catch (error) {
         assert.include(error.message, 'Not enough funds to repay the flash loan!')
         return
@@ -73,12 +80,26 @@ contract('Arbitrage', async (accounts) => {
     it('Should execute properly', async () => {
       try {
         await arbitrage.convertEtherToWeth({ value: toWei('50') })
-        await arbitrage.initiateFlashLoan(wethAddress, web3.utils.toWei('5000', 'ether'))
+        await arbitrage.initiateFlashLoan(wethAddress, toEther('5000'))
         const wethBalance = await arbitrage.getTokenBalance(wethAddress)
         assert.equal(wethBalance, toWei('48'))
       } catch (error) {
         assert(false)
       }
+    })
+  })
+
+  describe('OneSplit', async () => {
+    const oneSplitContract = new web3.eth.Contract(ONE_SPLIT_ABI, oneSplitExchange)
+    const amount = toWei('48')
+    const ONE_SPLIT_PARTS = 10
+    const ONE_SPLIT_FLAGS = 0
+
+    it('Should trade Weth for Dai', async () => {
+      const data =  await oneSplitContract.methods.getExpectedReturn(wethAddress, daiAddress, amount, ONE_SPLIT_PARTS, ONE_SPLIT_FLAGS).call()
+      await arbitrage.swapOnOneSplit(wethAddress, daiAddress, amount, data.returnAmount, data.distribution)
+      const daiBalance = await arbitrage.getTokenBalance(daiAddress)
+      assert.equal(daiBalance, data.returnAmount)
     })
   })
 })
