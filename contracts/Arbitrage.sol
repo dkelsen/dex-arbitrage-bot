@@ -5,6 +5,7 @@ pragma abicoder v2;
 import "./Shared.sol";
 import "./FlashLoan.sol";
 import "./OneSplit.sol";
+import "./ZeroEx.sol";
 
 contract Arbitrage is DyDxFlashLoan {
 	IWETH WETH_CONTRACT = IWETH(WETH);
@@ -14,6 +15,15 @@ contract Arbitrage is DyDxFlashLoan {
 	IOneSplit ONESPLIT_CONTRACT = IOneSplit(ONESPLIT_ADDRESS);
 	uint256 PARTS = 10;
 	uint256 FLAGS = 0;
+
+	/* ZeroEx Configuration */
+	address ZRX_EXCHANGE_ADDRESS = 0x61935CbDd02287B511119DDb11Aeb42F1593b7Ef;
+	address ZRX_ERC20_PROXY_ADDRESS = 0x95E6F48254609A6ee006F7D493c8e5fB97094ceF;
+	address ZRX_STAKING_PROXY = 0xa26e80e7Dea86279c6d778D702Cc413E6CFfA777; /* Fee Collector */
+
+	constructor() payable {
+		approveZeroExFee(msg.value);
+	}
 
 	/* Deposits And Withdrawals */
 	function withdrawEther(uint256 _amount) external onlyOwner {
@@ -74,6 +84,29 @@ contract Arbitrage is DyDxFlashLoan {
 
 		/* Reset Approval */
 		IERC20(_fromToken).approve(ONESPLIT_ADDRESS, 0);
+	}
+
+	function approveZeroExFee(uint256 _amount) private {
+		WETH_CONTRACT.approve(ZRX_STAKING_PROXY, _amount);
+	}
+
+	function swapOnZeroEx(
+		Order memory order,
+		uint256 takerAssetFillAmount,
+		bytes memory signature,
+		address _fromToken,
+		uint256 _amount
+	) external payable onlyOwner {
+		IERC20(_fromToken).approve(ZRX_ERC20_PROXY_ADDRESS, _amount);
+
+		ZeroEx(ZRX_EXCHANGE_ADDRESS).fillOrder{ value: msg.value }(
+			order,
+			takerAssetFillAmount,
+			signature
+		);
+
+		/* Reset Approval */
+		IERC20(_fromToken).approve(ZRX_ERC20_PROXY_ADDRESS, 0);
 	}
 
 	/* Function Invoked By DyDx */
