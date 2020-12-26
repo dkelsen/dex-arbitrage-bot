@@ -1,25 +1,17 @@
 import 'dotenv/config'
 import express from 'express'
-import fetch from 'node-fetch'
 import Web3 from 'web3'
 
 import ZRX_EXCHANGE_ABI from './abis/zrx.json'
 import ONE_SPLIT_ABI from './abis/oneSplit.json'
 import { now, logArbitrageCheck } from './utils'
 import { sendNotificationEmail } from './email'
+import { checkZrxOrderBook } from './orders'
+import { ASSET_ADDRESSES, EXCHANGE_ADDRESSES } from './utils'
 
 /* Application Setup */
 const app = express()
 const PORT = process.env.PORT
-
-const ASSET_ADDRESSES = {
-  DAI: '0x6b175474e89094c44da98b954eedeac495271d0f',
-  WETH: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
-}
-const EXCHANGE_ADDRESSES = {
-  ZRX: '0x61935CbDd02287B511119DDb11Aeb42F1593b7Ef',
-  ONE_SPLIT: '0xC586BeF4a0992C495Cf22e1aeEE4E446CECDee0E'
-}
 
 const web3 = new Web3(process.env.RPC_URL)
 web3.eth.accounts.wallet.add(process.env.PRIVATE_KEY)
@@ -31,28 +23,6 @@ app.listen(PORT, () =>
 )
 
 /* Function Definitions */
-const checkZrxOrderBook = async (baseAssetSymbol, quoteAssetSymbol) => {
-  /* Worth Of Base Asset In Quote Asset:
-   * Example: DAI/WETH - How much is 1 DAI worth in ETH?
-   */
-  const baseAssetAddress = ASSET_ADDRESSES[baseAssetSymbol].substring(2, 42)
-  const quoteAssetAddress = ASSET_ADDRESSES[quoteAssetSymbol].substring(2, 42)
-
-  const queryUrl = `
-    https://api.0x.org/sra/v3/orderbook?\
-baseAssetData=0xf47261b0000000000000000000000000${baseAssetAddress}&\
-quoteAssetData=0xf47261b0000000000000000000000000${quoteAssetAddress}&\
-perPage=1000
-  `
-
-  const zrxResponse = await fetch(queryUrl)
-  const zrxData = await zrxResponse.json()
-  /* Bid: Highest price someone will pay
-   * Ask: Lowest price someone will sell
-   */
-  return zrxData.bids.records
-}
-
 const ONE_SPLIT_PARTS = 10
 const ONE_SPLIT_FLAGS = 0
 const fetchOneSplitData = async ({ fromToken, toToken, amount }) => {
@@ -64,7 +34,7 @@ const checkedZrxOrders = []
 const checkArbitrage = async ({ bidOrder: { order: zrxOrder }, assetOrder }) => {
   const orderId = JSON.stringify(zrxOrder)
 
-  /* Skip these orders */
+  /* Skip These Orders */
   if (checkedZrxOrders.includes(orderId)) return false
   checkedZrxOrders.push(orderId)
 
@@ -102,7 +72,7 @@ const checkArbitrage = async ({ bidOrder: { order: zrxOrder }, assetOrder }) => 
   /* Asset Amount At Start And End Of Potential Trade */
   const inputAssetAmount = new web3.utils.BN(zrxOrder.takerAssetAmount)
   const outputAssetAmount = new web3.utils.BN(oneSplitData.returnAmount)
-  let estimatedGasFee = new web3.utils.BN(0)
+  let estimatedGasFee = new web3.utils.BN(0) /* NEEDS TO BE ADJUSTED WHEN NOT (W)ETH */
 
   const netProfit = outputAssetAmount.sub(inputAssetAmount).sub(estimatedGasFee)
   const isProfitable = netProfit.gt(new web3.utils.BN(0))
