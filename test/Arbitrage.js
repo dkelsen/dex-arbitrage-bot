@@ -1,5 +1,6 @@
 const Arbitrage = artifacts.require('Arbitrage')
 const ONE_SPLIT_ABI = require('../src/abis/oneSplit.json')
+const DAI_TOKEN_ABI = require('../src/abis/daiToken.json')
 const {
   checkZrxOrderBook
 } = require('../src/orders')
@@ -17,6 +18,9 @@ contract('Arbitrage', async (accounts) => {
   let wethBalance
   let daiBalance
 
+  const daiContract = new web3.eth.Contract(DAI_TOKEN_ABI, ASSET_ADDRESSES.DAI);
+  const unlockedAddress = '0x7AD1243179857B04763ECbCCe1F92C8572d46255'
+
   describe('Deposits and withdrawals', async () => {
     before(async () => {
       arbitrage = await Arbitrage.deployed()
@@ -28,6 +32,12 @@ contract('Arbitrage', async (accounts) => {
       await arbitrage.send(toWei('100'))
       etherBalance = await web3.eth.getBalance(contractAddress)
       assert.equal(etherBalance, toWei('200'))
+    })
+
+    it('Should allow ERC20 token desposits', async () => {
+      await daiContract.methods.transfer(contractAddress, toWei('700')).send({from: unlockedAddress })
+      daiBalance = await arbitrage.getTokenBalance(ASSET_ADDRESSES.DAI)
+      assert.equal(daiBalance, toWei('700'))
     })
 
     it('Should convert Ether to Weth', async () => {
