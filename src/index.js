@@ -3,11 +3,14 @@ import express from 'express'
 import Web3 from 'web3'
 
 import ZRX_EXCHANGE_ABI from './abis/zrx.json'
-import ONE_SPLIT_ABI from './abis/oneSplit.json'
 import { now, logArbitrageCheck } from './utils'
 import { sendNotificationEmail } from './email'
-import { checkZrxOrderBook } from './orders'
-import { ASSET_ADDRESSES, EXCHANGE_ADDRESSES } from './utils'
+import { checkZrxOrderBook, fetchOneSplitData } from './orders'
+import { 
+  ASSET_ADDRESSES,
+  EXCHANGE_ADDRESSES,
+  getZeroExOrderTuple
+} from './utils'
 
 /* Application Setup */
 const app = express()
@@ -16,20 +19,12 @@ const PORT = process.env.PORT
 const web3 = new Web3(process.env.RPC_URL)
 web3.eth.accounts.wallet.add(process.env.PRIVATE_KEY)
 const zrxExchangeContract = new web3.eth.Contract(ZRX_EXCHANGE_ABI, EXCHANGE_ADDRESSES.ZRX)
-const oneSplitContract = new web3.eth.Contract(ONE_SPLIT_ABI, EXCHANGE_ADDRESSES.ONE_SPLIT)
 
 app.listen(PORT, () =>
   console.log(`NodeJS app listening on port ${PORT}!`),
 )
 
 /* Function Definitions */
-const ONE_SPLIT_PARTS = 10
-const ONE_SPLIT_FLAGS = 0
-const fetchOneSplitData = async ({ fromToken, toToken, amount }) => {
-  const data = await oneSplitContract.methods.getExpectedReturn(fromToken, toToken, amount, ONE_SPLIT_PARTS, ONE_SPLIT_FLAGS).call()
-  return data
-}
-
 const checkedZrxOrders = []
 const checkArbitrage = async ({ bidOrder: { order: zrxOrder }, assetOrder }) => {
   const orderId = JSON.stringify(zrxOrder)
@@ -43,23 +38,7 @@ const checkArbitrage = async ({ bidOrder: { order: zrxOrder }, assetOrder }) => 
     zrxOrder.takerFee.toString() !== '0'
   ) return false
 
-  const orderTuple = [
-    zrxOrder.makerAddress,
-    zrxOrder.takerAddress,
-    zrxOrder.feeRecipientAddress,
-    zrxOrder.senderAddress,
-    zrxOrder.makerAssetAmount,
-    zrxOrder.takerAssetAmount,
-    zrxOrder.makerFee,
-    zrxOrder.takerFee,
-    zrxOrder.expirationTimeSeconds,
-    zrxOrder.salt,
-    zrxOrder.makerAssetData,
-    zrxOrder.takerAssetData,
-    zrxOrder.makerFeeAssetData,
-    zrxOrder.takerFeeAssetData
-  ]
-
+  const orderTuple = getZeroExOrderTuple(zrxOrder)
   const orderInfo = await zrxExchangeContract.methods.getOrderInfo(orderTuple).call()
   if (orderInfo.orderTakerAssetFilledAmount.toString() !== '0') return false
 

@@ -47,3 +47,22 @@ export const logArbitrageCheck = ({
     'Timestamp': now(),
   }])
 }
+
+export const getZeroExOrderTuple = (zeroExOrder) => {
+  return [
+    zeroExOrder.makerAddress,
+    zeroExOrder.takerAddress,
+    zeroExOrder.feeRecipientAddress,
+    zeroExOrder.senderAddress,
+    zeroExOrder.makerAssetAmount,
+    zeroExOrder.takerAssetAmount,
+    zeroExOrder.makerFee,
+    zeroExOrder.takerFee,
+    zeroExOrder.expirationTimeSeconds,
+    zeroExOrder.salt,
+    zeroExOrder.makerAssetData,
+    zeroExOrder.takerAssetData,
+    zeroExOrder.makerFeeAssetData,
+    zeroExOrder.takerFeeAssetData
+  ]
+}

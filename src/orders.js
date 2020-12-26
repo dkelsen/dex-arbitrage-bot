@@ -1,5 +1,12 @@
+import 'dotenv/config'
 import fetch from 'node-fetch'
-import { ASSET_ADDRESSES } from './utils'
+import Web3 from 'web3'
+
+import { ASSET_ADDRESSES, EXCHANGE_ADDRESSES } from './utils'
+import ONE_SPLIT_ABI from './abis/oneSplit.json'
+
+/* Setup For Web3 */
+const web3 = new Web3(process.env.RPC_URL)
 
 export const checkZrxOrderBook = async (
   baseAssetSymbol /* What I Want To Sell */,
@@ -24,4 +31,12 @@ perPage=1000
    * Ask: Lowest price someone will sell
    */
   return zrxData.bids.records
+}
+
+const ONE_SPLIT_PARTS = 10
+const ONE_SPLIT_FLAGS = 0
+const oneSplitContract = new web3.eth.Contract(ONE_SPLIT_ABI, EXCHANGE_ADDRESSES.ONE_SPLIT)
+export const fetchOneSplitData = async ({ fromToken, toToken, amount }) => {
+  const data = await oneSplitContract.methods.getExpectedReturn(fromToken, toToken, amount, ONE_SPLIT_PARTS, ONE_SPLIT_FLAGS).call()
+  return data
 }

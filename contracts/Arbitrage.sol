@@ -111,25 +111,38 @@ contract Arbitrage is DyDxFlashLoan {
 
 	/* Function Invoked By DyDx */
 	function callFunction(
-		address sender,
-		Account.Info memory accountInfo,
-		bytes memory data
+		address _sender,
+		Account.Info memory _accountInfo,
+		bytes memory _data
 	) external view override onlyDyDx {
-		// Decode the passed variables from the data object
 		(
-			// This must match the variables defined in the Call object above
 			address payable actualSender,
-			uint256 loanAmount
-		) = abi.decode(data, (address, uint256));
+			uint256 loanAmount,
+			uint256 loanToken,
+			address arbitrageToken,
+			uint256 oneSplitMinReturn,
+			uint256[] memory oneSplitDistribution,
+			Order memory zeroExOrder,
+			uint256 zeroExTakerAssetFillAmount,
+			bytes memory zeroExSignature
+		) =
+			abi.decode(
+				_data,
+				(
+					address,
+					uint256,
+					uint256,
+					address,
+					uint256,
+					uint256[],
+					Order,
+					uint256,
+					bytes
+				)
+			);
 
-		// We now have a WETH balance of loanAmount. The logic for what we
-		// want to do with it goes here. The code below is just there in case
-		// it's useful.
-
-		// It can be useful for debugging to have a verbose error message when
-		// the loan can't be paid, since dydx doesn't provide one
 		require(
-			WETH_CONTRACT.balanceOf(address(this)) > loanAmount + 2,
+			IERC20(loanToken).balanceOf(address(this)) > loanAmount + 2,
 			"Not enough funds to repay the flash loan!"
 		);
 

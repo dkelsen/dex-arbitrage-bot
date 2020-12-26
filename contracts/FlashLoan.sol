@@ -3,6 +3,7 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "./Shared.sol";
+import "./ZeroEx.sol";
 
 // These definitions are taken from across multiple dydx contracts, and are
 // limited to just the bare minimum necessary to make flash loans work.
@@ -109,11 +110,17 @@ abstract contract DyDxFlashLoan is ICallee {
 	}
 
 	/* The Function Called By The Arbitrage Bot */
-	function initiateFlashLoan(address _token, uint256 _loanAmount)
-		external
-		onlyOwner
-	{
-		IERC20(_token).approve(address(soloMargin), uint256(-1));
+	function initiateFlashLoan(
+		address _loanToken,
+		address _arbitrageToken,
+		uint256 _loanAmount,
+		uint256 _oneSplitMinReturn,
+		uint256[] calldata _oneSplitDistribution,
+    Order memory _zeroExOrder,
+    uint256 _zeroExTakerAssetFillAmount,
+    bytes memory _zeroExSignature
+	) external onlyOwner {
+		IERC20(_loanToken).approve(address(soloMargin), uint256(-1));
 
 		Actions.ActionArgs[] memory operations = new Actions.ActionArgs[](3);
 
@@ -126,7 +133,7 @@ abstract contract DyDxFlashLoan is ICallee {
 				ref: Types.AssetReference.Delta,
 				value: _loanAmount
 			}),
-			primaryMarketId: tokenToMarketId(_token),
+			primaryMarketId: tokenToMarketId(_loanToken),
 			secondaryMarketId: 0,
 			otherAddress: address(this),
 			otherAccountId: 0,
@@ -147,10 +154,15 @@ abstract contract DyDxFlashLoan is ICallee {
 			otherAddress: address(this),
 			otherAccountId: 0,
 			data: abi.encode(
-				// Replace or add any additional variables that you want
-				// to be available to the receiver function
 				msg.sender,
-				_loanAmount
+				_loanAmount,
+        _loanToken,
+        _arbitrageToken,
+        _oneSplitMinReturn,
+		    _oneSplitDistribution,
+        _zeroExOrder,
+        _zeroExTakerAssetFillAmount,
+        _zeroExSignature
 			)
 		});
 
@@ -163,7 +175,7 @@ abstract contract DyDxFlashLoan is ICallee {
 				ref: Types.AssetReference.Delta,
 				value: _loanAmount + 2 /* Repayment Amount With 2 Wei Fee */
 			}),
-			primaryMarketId: tokenToMarketId(_token),
+			primaryMarketId: tokenToMarketId(_loanToken),
 			secondaryMarketId: 0,
 			otherAddress: address(this),
 			otherAccountId: 0,

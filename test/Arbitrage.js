@@ -2,13 +2,15 @@ const Arbitrage = artifacts.require('Arbitrage')
 const ONE_SPLIT_ABI = require('../src/abis/oneSplit.json')
 const DAI_TOKEN_ABI = require('../src/abis/daiToken.json')
 const {
-  checkZrxOrderBook
+  checkZrxOrderBook,
+  fetchOneSplitData
 } = require('../src/orders')
 const {
   ASSET_ADDRESSES,
   EXCHANGE_ADDRESSES,
   toWei,
-  toEther
+  toEther,
+  getZeroExOrderTuple
 } = require('../src/utils')
 
 contract('Arbitrage', async (accounts) => {
@@ -35,7 +37,7 @@ contract('Arbitrage', async (accounts) => {
     })
 
     it('Should allow ERC20 token desposits', async () => {
-      await daiContract.methods.transfer(contractAddress, toWei('700')).send({from: unlockedAddress })
+      await daiContract.methods.transfer(contractAddress, toWei('700')).send({ from: unlockedAddress })
       daiBalance = await arbitrage.getTokenBalance(ASSET_ADDRESSES.DAI)
       assert.equal(daiBalance, toWei('700'))
     })
@@ -76,15 +78,42 @@ contract('Arbitrage', async (accounts) => {
   })
 
   describe('Flashloan', async () => {
+    const assetOrder = ['DAI', 'WETH', 'DAI']
+    let allOrders
+    let zeroExOrder
+    let zeroExOrderTuple
+    let oneSplitData
+
     before(async () => {
       arbitrage = await Arbitrage.new()
       contractAddress = arbitrage.address
       etherBalance = wethBalance = daiBalance = 0
+
+      /* Preparations To Call Flash Loan */
+      allOrders = await checkZrxOrderBook('DAI', 'WETH')
+      const { order } = allOrders[0]
+      zeroExOrder = order
+      zeroExOrderTuple = getZeroExOrderTuple(zeroExOrder)
+
+      oneSplitData = await fetchOneSplitData({
+        fromToken: ASSET_ADDRESSES[assetOrder[1]],
+        toToken: ASSET_ADDRESSES[assetOrder[2]],
+        amount: zeroExOrder.makerAssetAmount,
+      })
     })
 
     it('Should fail as expected', async () => {
       try {
-        await arbitrage.initiateFlashLoan(ASSET_ADDRESSES.WETH, toEther('5000'))
+        await arbitrage.initiateFlashLoan(
+          ASSET_ADDRESSES.DAI,
+          ASSET_ADDRESSES.WETH,
+          toEther('100000'),
+          oneSplitData.returnAmount,
+          oneSplitData.distribution,
+          zeroExOrderTuple,
+          zeroExOrder.takerAssetAmount,
+          zeroExOrder.signature
+        )
       } catch (error) {
         assert.include(error.message, 'Not enough funds to repay the flash loan!')
         return
@@ -94,10 +123,19 @@ contract('Arbitrage', async (accounts) => {
 
     it('Should execute properly', async () => {
       try {
-        await arbitrage.convertEtherToWeth({ value: toWei('50') })
-        await arbitrage.initiateFlashLoan(ASSET_ADDRESSES.WETH, toEther('5000'))
-        const wethBalance = await arbitrage.getTokenBalance(ASSET_ADDRESSES.WETH)
-        assert.equal(wethBalance, toWei('48'))
+        await daiContract.methods.transfer(contractAddress, toWei('100')).send({ from: unlockedAddress })
+        await arbitrage.initiateFlashLoan(
+          ASSET_ADDRESSES.DAI,
+          ASSET_ADDRESSES.WETH,
+          toEther('100000'),
+          oneSplitData.returnAmount,
+          oneSplitData.distribution,
+          zeroExOrderTuple,
+          zeroExOrder.takerAssetAmount,
+          zeroExOrder.signature
+        )
+        const daiBalance = await arbitrage.getTokenBalance(ASSET_ADDRESSES.DAI)
+        assert.equal(daiBalance, toWei('98'))
       } catch (error) {
         assert(false)
       }
@@ -115,22 +153,7 @@ contract('Arbitrage', async (accounts) => {
       const allOrders = await checkZrxOrderBook('WETH', 'DAI')
       const { order } = allOrders[0]
       await arbitrage.convertEtherToWeth({ value: toWei(order.takerAssetAmount) })
-      const orderTuple = [
-        order.makerAddress,
-        order.takerAddress,
-        order.feeRecipientAddress,
-        order.senderAddress,
-        order.makerAssetAmount,
-        order.takerAssetAmount,
-        order.makerFee,
-        order.takerFee,
-        order.expirationTimeSeconds,
-        order.salt,
-        order.makerAssetData,
-        order.takerAssetData,
-        order.makerFeeAssetData,
-        order.takerFeeAssetData
-      ]
+      const orderTuple = getZeroExOrderTuple(order)
       await arbitrage.swapOnZeroEx(
         orderTuple,
         order.takerAssetAmount,
