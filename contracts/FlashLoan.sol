@@ -103,6 +103,14 @@ abstract contract DyDxFlashLoan is ICallee {
 		_;
 	}
 
+  modifier onlyDyDxAndOwner() {
+		require(
+			(msg.sender == OWNER || msg.sender == address(soloMargin)),
+			"Wait a minute... You're not the owner of this contract!"
+		);
+		_;
+	}
+
 	function tokenToMarketId(address _token) public view returns (uint256) {
 		uint256 marketId = tokens[_token];
 		require(marketId != 0, "FlashLoan: Unsupported token");
@@ -147,7 +155,7 @@ abstract contract DyDxFlashLoan is ICallee {
 				sign: false,
 				denomination: Types.AssetDenomination.Wei,
 				ref: Types.AssetReference.Delta,
-				value: 0
+				value: _loanAmount
 			}),
 			primaryMarketId: 0,
 			secondaryMarketId: 0,

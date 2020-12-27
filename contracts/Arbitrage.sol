@@ -22,7 +22,8 @@ contract Arbitrage is DyDxFlashLoan {
 	address ZRX_STAKING_PROXY = 0xa26e80e7Dea86279c6d778D702Cc413E6CFfA777; /* Fee Collector */
 
 	constructor() payable {
-		approveZeroExFee(msg.value);
+		convertEtherToWeth();
+		approveZeroExFee();
 	}
 
 	/* Deposits And Withdrawals */
@@ -49,7 +50,7 @@ contract Arbitrage is DyDxFlashLoan {
 		WETH_CONTRACT.withdraw(_amount);
 	}
 
-	function convertEtherToWeth() external payable {
+	function convertEtherToWeth() public payable {
 		WETH_CONTRACT.deposit{ value: msg.value }();
 	}
 
@@ -63,6 +64,27 @@ contract Arbitrage is DyDxFlashLoan {
 
 	receive() external payable {}
 
+	/* ZeroEx Swap Trade */
+	function swapOnZeroEx(
+		Order memory order,
+		uint256 takerAssetFillAmount,
+		bytes memory signature,
+		address _fromToken,
+		uint256 _amount
+	) public payable onlyDyDxAndOwner {
+		IERC20(_fromToken).approve(ZRX_ERC20_PROXY_ADDRESS, _amount);
+
+		FillResults memory fillResults =
+			ZeroEx(ZRX_EXCHANGE_ADDRESS).fillOrder{ value: msg.value }(
+				order,
+				takerAssetFillAmount,
+				signature
+			);
+
+		/* Reset Approval */
+		IERC20(_fromToken).approve(ZRX_ERC20_PROXY_ADDRESS, 0);
+	}
+
 	/* OneSplit Swap Trade */
 	function swapOnOneSplit(
 		address _fromToken,
@@ -70,7 +92,7 @@ contract Arbitrage is DyDxFlashLoan {
 		uint256 _amount,
 		uint256 _minReturn,
 		uint256[] memory _distribution
-	) external onlyOwner {
+	) public onlyDyDxAndOwner {
 		IERC20(_fromToken).approve(ONESPLIT_ADDRESS, _amount);
 
 		ONESPLIT_CONTRACT.swap(
@@ -86,27 +108,8 @@ contract Arbitrage is DyDxFlashLoan {
 		IERC20(_fromToken).approve(ONESPLIT_ADDRESS, 0);
 	}
 
-	function approveZeroExFee(uint256 _amount) private {
-		WETH_CONTRACT.approve(ZRX_STAKING_PROXY, _amount);
-	}
-
-	function swapOnZeroEx(
-		Order memory order,
-		uint256 takerAssetFillAmount,
-		bytes memory signature,
-		address _fromToken,
-		uint256 _amount
-	) external payable onlyOwner {
-		IERC20(_fromToken).approve(ZRX_ERC20_PROXY_ADDRESS, _amount);
-
-		ZeroEx(ZRX_EXCHANGE_ADDRESS).fillOrder{ value: msg.value }(
-			order,
-			takerAssetFillAmount,
-			signature
-		);
-
-		/* Reset Approval */
-		IERC20(_fromToken).approve(ZRX_ERC20_PROXY_ADDRESS, 0);
+	function approveZeroExFee() private {
+		WETH_CONTRACT.approve(ZRX_STAKING_PROXY, uint256(-1));
 	}
 
 	/* Function Invoked By DyDx */
@@ -114,11 +117,11 @@ contract Arbitrage is DyDxFlashLoan {
 		address _sender,
 		Account.Info memory _accountInfo,
 		bytes memory _data
-	) external view override onlyDyDx {
+	) external override onlyDyDx {
 		(
 			address payable actualSender,
 			uint256 loanAmount,
-			uint256 loanToken,
+			address loanToken,
 			address arbitrageToken,
 			uint256 oneSplitMinReturn,
 			uint256[] memory oneSplitDistribution,
@@ -131,7 +134,7 @@ contract Arbitrage is DyDxFlashLoan {
 				(
 					address,
 					uint256,
-					uint256,
+					address,
 					address,
 					uint256,
 					uint256[],
@@ -146,7 +149,12 @@ contract Arbitrage is DyDxFlashLoan {
 			"Not enough funds to repay the flash loan!"
 		);
 
-		// TODO: Encode your logic here
-		// E.g. arbitrage, liquidate accounts, etc
+		swapOnZeroEx(
+			zeroExOrder,
+			zeroExTakerAssetFillAmount,
+			zeroExSignature,
+			loanToken,
+			loanAmount
+		);
 	}
 }

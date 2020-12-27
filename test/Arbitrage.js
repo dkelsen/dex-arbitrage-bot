@@ -16,7 +16,7 @@ const {
 contract('Arbitrage', async (accounts) => {
   let arbitrage
   let contractAddress
-  let etherBalance /* 100 Wei Available On Deployment */
+  let etherBalance
   let wethBalance
   let daiBalance
 
@@ -33,7 +33,7 @@ contract('Arbitrage', async (accounts) => {
     it('Should allow regular Ether deposits', async () => {
       await arbitrage.send(toWei('100'))
       etherBalance = await web3.eth.getBalance(contractAddress)
-      assert.equal(etherBalance, toWei('200'))
+      assert.equal(etherBalance, toWei('100'))
     })
 
     it('Should allow ERC20 token desposits', async () => {
@@ -45,13 +45,13 @@ contract('Arbitrage', async (accounts) => {
     it('Should convert Ether to Weth', async () => {
       await arbitrage.convertEtherToWeth({ value: toWei('500') })
       wethBalance = await arbitrage.getTokenBalance(ASSET_ADDRESSES.WETH)
-      assert.equal(wethBalance, toWei('500'))
+      assert.equal(wethBalance, toWei('600'))
     })
 
     it('Should convert Weth to Ether', async () => {
       await arbitrage.convertWethToEther(toWei('300'))
       wethBalance = await arbitrage.getTokenBalance(ASSET_ADDRESSES.WETH)
-      assert.equal(wethBalance, toWei('200'))
+      assert.equal(wethBalance, toWei('300'))
     })
 
     it('Should not allow other users to withdraw Ether', async () => {
@@ -65,32 +65,33 @@ contract('Arbitrage', async (accounts) => {
     })
 
     it('Should allow the contract owner to withdraw Ether', async () => {
-      await arbitrage.withdrawEther(toWei('500'))
+      await arbitrage.withdrawEther(toWei('400'))
       etherBalance = await web3.eth.getBalance(contractAddress)
-      assert.equal(etherBalance, toWei('0'))
+      assert.equal(etherBalance.toString(), toWei('0'))
     })
 
     it('Should allow the contract owner to withdraw Weth', async () => {
-      await arbitrage.withdrawToken(ASSET_ADDRESSES.WETH, toWei('200'))
+      await arbitrage.withdrawToken(ASSET_ADDRESSES.WETH, toWei('300'))
       wethBalance = await arbitrage.getTokenBalance(ASSET_ADDRESSES.WETH)
       assert.equal(wethBalance, toWei('0'))
     })
   })
 
   describe('Flashloan', async () => {
-    const assetOrder = ['DAI', 'WETH', 'DAI']
+    const assetOrder = ['WETH', 'DAI', 'WETH']
     let allOrders
     let zeroExOrder
     let zeroExOrderTuple
     let oneSplitData
 
     before(async () => {
-      arbitrage = await Arbitrage.new()
+      /* Cover ZeroEx WETH Fees */
+      arbitrage = await Arbitrage.new({ value: toEther('0.01') })
       contractAddress = arbitrage.address
       etherBalance = wethBalance = daiBalance = 0
 
       /* Preparations To Call Flash Loan */
-      allOrders = await checkZrxOrderBook('DAI', 'WETH')
+      allOrders = await checkZrxOrderBook('WETH', 'DAI')
       const { order } = allOrders[0]
       zeroExOrder = order
       zeroExOrderTuple = getZeroExOrderTuple(zeroExOrder)
@@ -107,7 +108,7 @@ contract('Arbitrage', async (accounts) => {
         await arbitrage.initiateFlashLoan(
           ASSET_ADDRESSES.DAI,
           ASSET_ADDRESSES.WETH,
-          toEther('100000'),
+          toEther('10000'),
           oneSplitData.returnAmount,
           oneSplitData.distribution,
           zeroExOrderTuple,
@@ -123,20 +124,20 @@ contract('Arbitrage', async (accounts) => {
 
     it('Should execute properly', async () => {
       try {
-        await daiContract.methods.transfer(contractAddress, toWei('100')).send({ from: unlockedAddress })
         await arbitrage.initiateFlashLoan(
-          ASSET_ADDRESSES.DAI,
           ASSET_ADDRESSES.WETH,
-          toEther('100000'),
+          ASSET_ADDRESSES.DAI,
+          toEther('10000'),
           oneSplitData.returnAmount,
           oneSplitData.distribution,
           zeroExOrderTuple,
           zeroExOrder.takerAssetAmount,
           zeroExOrder.signature
         )
-        const daiBalance = await arbitrage.getTokenBalance(ASSET_ADDRESSES.DAI)
-        assert.equal(daiBalance, toWei('98'))
+        daiBalance = await arbitrage.getTokenBalance(ASSET_ADDRESSES.DAI)
+        assert.notEqual(daiBalance.toString(), toWei('0'))
       } catch (error) {
+        console.log(error)
         assert(false)
       }
     })
@@ -144,14 +145,17 @@ contract('Arbitrage', async (accounts) => {
 
   describe('ZeroX Exchange', async () => {
     before(async () => {
-      arbitrage = await Arbitrage.new()
+      /* Cover ZeroEx WETH Fees */
+      arbitrage = await Arbitrage.new({ value: toEther('0.01') })
       contractAddress = arbitrage.address
       etherBalance = wethBalance = daiBalance = 0
     })
 
     it('Should trade Weth for Dai', async () => {
       const allOrders = await checkZrxOrderBook('WETH', 'DAI')
-      const { order } = allOrders[0]
+      /* Select A Different Order From Previous Test */
+      const { order } = allOrders[4]
+      /* Cover Swap Amount */
       await arbitrage.convertEtherToWeth({ value: toWei(order.takerAssetAmount) })
       const orderTuple = getZeroExOrderTuple(order)
       await arbitrage.swapOnZeroEx(
@@ -159,8 +163,7 @@ contract('Arbitrage', async (accounts) => {
         order.takerAssetAmount,
         order.signature,
         ASSET_ADDRESSES.WETH,
-        order.takerAssetAmount,
-        { value: toWei(order.takerAssetAmount) }
+        order.takerAssetAmount
       )
       daiBalance = await arbitrage.getTokenBalance(ASSET_ADDRESSES.DAI)
       assert.equal(daiBalance.toString(), order.makerAssetAmount)
@@ -169,7 +172,7 @@ contract('Arbitrage', async (accounts) => {
 
   describe('OneSplit Exchange', async () => {
     before(async () => {
-      arbitrage = await Arbitrage.new()
+      arbitrage = await Arbitrage.new({ value: toWei('100') })
       contractAddress = arbitrage.address
       etherBalance = wethBalance = daiBalance = 0
     })
