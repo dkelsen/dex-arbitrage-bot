@@ -10,14 +10,15 @@
     "start": "npm run build && node ./build/index.js",
     "start:dev": "nodemon --exec babel-node src/index.js",
     "build": "rm -rf build && mkdir build && babel src --out-dir build --copy-files",
-    "fork": "ganache-cli -f \"${npm_package_config_node_url}\" -i 1 -p 7545 -u \"${npm_package_config_unlocked_address}\"",
+    "fork": "ganache-cli -f \"${npm_package_config_node_url}\" -i 1 -p 7545 -u \"${npm_package_config_unlocked_dai_address}\" -u \"${npm_package_config_unlocked_ether_address}\"",
     "deploy": "truffle compile && truffle migrate --reset --network",
     "console": "truffle console --network",
     "test": "truffle test --network"
   },
   "config": {
     "node_url": "https://cloudflare-eth.com/",
-    "unlocked_address": "0x7AD1243179857B04763ECbCCe1F92C8572d46255"
+    "unlocked_dai_address": "0x7AD1243179857B04763ECbCCe1F92C8572d46255",
+    "unlocked_ether_address": "0x73BCEb1Cd57C711feaC4224D062b0F6ff338501e"
   },
   "dependencies": {
     "@babel/cli": "^7.12.10",

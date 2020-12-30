@@ -66,3 +66,7 @@ export const getZeroExOrderTuple = (zeroExOrder) => {
     zeroExOrder.takerFeeAssetData
   ]
 }
+
+export const calculateSlippage = (orderAmount) => {
+  return (new web3.utils.BN(orderAmount)).mul(new web3.utils.BN('995')).div(new web3.utils.BN('1000')).toString()
+}

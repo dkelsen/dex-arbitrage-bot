@@ -71,7 +71,7 @@ contract Arbitrage is DyDxFlashLoan {
 		bytes memory signature,
 		address _fromToken,
 		uint256 _amount
-	) public payable onlyDyDxAndOwner {
+	) public payable onlyDyDxAndOwner returns (uint256) {
 		IERC20(_fromToken).approve(ZRX_ERC20_PROXY_ADDRESS, _amount);
 
 		FillResults memory fillResults =
@@ -83,6 +83,7 @@ contract Arbitrage is DyDxFlashLoan {
 
 		/* Reset Approval */
 		IERC20(_fromToken).approve(ZRX_ERC20_PROXY_ADDRESS, 0);
+		return fillResults.makerAssetFilledAmount;
 	}
 
 	/* OneSplit Swap Trade */
@@ -112,6 +113,8 @@ contract Arbitrage is DyDxFlashLoan {
 		WETH_CONTRACT.approve(ZRX_STAKING_PROXY, uint256(-1));
 	}
 
+  event LogArbitrage(string description, uint balance);
+
 	/* Function Invoked By DyDx */
 	function callFunction(
 		address _sender,
@@ -119,7 +122,6 @@ contract Arbitrage is DyDxFlashLoan {
 		bytes memory _data
 	) external override onlyDyDx {
 		(
-			address payable actualSender,
 			uint256 loanAmount,
 			address loanToken,
 			address arbitrageToken,
@@ -132,7 +134,6 @@ contract Arbitrage is DyDxFlashLoan {
 			abi.decode(
 				_data,
 				(
-					address,
 					uint256,
 					address,
 					address,
@@ -146,15 +147,32 @@ contract Arbitrage is DyDxFlashLoan {
 
 		require(
 			IERC20(loanToken).balanceOf(address(this)) > loanAmount + 2,
-			"Not enough funds to repay the flash loan!"
+			"Contract did not receive the flash loan."
 		);
 
-		swapOnZeroEx(
-			zeroExOrder,
-			zeroExTakerAssetFillAmount,
-			zeroExSignature,
+		uint256 makerAssetFilledAmount =
+			swapOnZeroEx(
+				zeroExOrder,
+				zeroExTakerAssetFillAmount,
+				zeroExSignature,
+				loanToken,
+				loanAmount
+			);
+
+    emit LogArbitrage("makerAssetFilledAmount", makerAssetFilledAmount);
+
+		swapOnOneSplit(
+			arbitrageToken,
 			loanToken,
-			loanAmount
+			makerAssetFilledAmount,
+			oneSplitMinReturn,
+			oneSplitDistribution
+		);
+
+		uint256 loanBalance = IERC20(loanToken).balanceOf(address(this));
+		require(
+			loanBalance >= loanAmount,
+			"Insufficient funds to repay the flash loan."
 		);
 	}
 }

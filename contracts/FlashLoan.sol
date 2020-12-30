@@ -162,7 +162,6 @@ abstract contract DyDxFlashLoan is ICallee {
 			otherAddress: address(this),
 			otherAccountId: 0,
 			data: abi.encode(
-				msg.sender,
 				_loanAmount,
         _loanToken,
         _arbitrageToken,
