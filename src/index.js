@@ -26,7 +26,7 @@ app.listen(PORT, () =>
 
 /* Function Definitions */
 const checkedZrxOrders = []
-const checkArbitrage = async ({ bidOrder: { order: zrxOrder }, assetOrder }) => {
+const checkArbitrage = async ({ bidOrder: { order: zrxOrder }, arbitrageOrder }) => {
   const orderId = JSON.stringify(zrxOrder)
 
   /* Skip These Orders */
@@ -43,22 +43,24 @@ const checkArbitrage = async ({ bidOrder: { order: zrxOrder }, assetOrder }) => 
   if (orderInfo.orderTakerAssetFilledAmount.toString() !== '0') return false
 
   const oneSplitData = await fetchOneSplitData({
-    fromToken: ASSET_ADDRESSES[assetOrder[1]],
-    toToken: ASSET_ADDRESSES[assetOrder[2]],
+    fromToken: ASSET_ADDRESSES[arbitrageOrder[1]],
+    toToken: ASSET_ADDRESSES[arbitrageOrder[2]],
     amount: zrxOrder.makerAssetAmount,
   })
 
   /* Asset Amount At Start And End Of Potential Trade */
   const inputAssetAmount = new web3.utils.BN(zrxOrder.takerAssetAmount)
   const outputAssetAmount = new web3.utils.BN(oneSplitData.returnAmount)
-  let estimatedGasFee = new web3.utils.BN(0) /* NEEDS TO BE ADJUSTED WHEN NOT (W)ETH */
+  const gasPrice = new web3.utils.BN(web3.utils.toWei(process.env.GAS_PRICE.toString(), 'Gwei'))
+  const estimatedGas = new web3.utils.BN(process.env.ESTIMATED_GAS)
+  let estimatedGasFee = (gasPrice).mul(estimatedGas) /* NEEDS TO BE ADJUSTED WHEN NOT (W)ETH */
 
   const netProfit = outputAssetAmount.sub(inputAssetAmount).sub(estimatedGasFee)
   const isProfitable = netProfit.gt(new web3.utils.BN(0))
 
   const loggingInput = {
     isProfitable,
-    assetOrder,
+    arbitrageOrder,
     inputAssetAmount,
     outputAssetAmount,
     netProfit,
@@ -72,17 +74,11 @@ const checkArbitrage = async ({ bidOrder: { order: zrxOrder }, assetOrder }) => 
   return isProfitable
 }
 
-let checkingMarkets = false
-const checkMarkets = async () => {
-  if (checkingMarkets) return
-  console.log(`Fetching market data @ ${now()} ...\n`)
-  checkingMarkets = true
-
+const checkPairs = async ({ arbitrageOrder }) => {
   try {
-    const assetOrder = ['DAI', 'WETH', 'DAI']
-    let bids = await checkZrxOrderBook('DAI', 'WETH')
+    let bids = await checkZrxOrderBook(arbitrageOrder[0], arbitrageOrder[1])
     bids.map(async (bidOrder) => {
-      const isArbitrage = await checkArbitrage({ bidOrder, assetOrder })
+      const isArbitrage = await checkArbitrage({ bidOrder, arbitrageOrder })
       if (isArbitrage) console.log("Arbitrage Found!")
     })
   } catch (error) {
@@ -90,7 +86,20 @@ const checkMarkets = async () => {
     checkingMarkets = false
     return
   }
+}
 
+let checkingMarkets = false
+const checkMarkets = async () => {
+  if (checkingMarkets) return
+  console.log(`Fetching market data @ ${now()} ...\n`)
+  checkingMarkets = true
+
+  checkPairs({ arbitrageOrder: ['WETH', 'CEL', 'WETH']})
+  checkPairs({ arbitrageOrder: ['WETH', 'WBTC', 'WETH']})
+  checkPairs({ arbitrageOrder: ['WETH', 'SWAP', 'WETH']})
+  checkPairs({ arbitrageOrder: ['WETH', 'MAHA', 'WETH']})
+  checkPairs({ arbitrageOrder: ['WETH', '1INCH', 'WETH']})
+  
   checkingMarkets = false
 }
 
