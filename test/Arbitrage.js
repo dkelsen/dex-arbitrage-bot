@@ -144,6 +144,9 @@ contract('Arbitrage', async (accounts) => {
 
       /* Preparations To Call Flash Loan */
       allOrders = await checkZrxOrderBook('WETH', 'DAI')
+      /* Create A New Fork On Every Test As The Order Will Be Filled In The Blockchain
+       * Alternatively: Pick A Random Order Instead Of Order '0'
+       */
       const { order } = allOrders[0]
       zeroExOrder = order
       zeroExOrderTuple = getZeroExOrderTuple(zeroExOrder)

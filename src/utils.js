@@ -24,6 +24,8 @@ export const now = () => (moment().tz('Europe/Luxembourg').format())
 
 export const displayTokens = (amount, symbol, web3) => {
   switch (symbol) {
+    case USDC: /* 6 decimals */
+      return web3.utils.fromWei(amount, 'picoether')
     default: /* 18 decimals */
       return web3.utils.fromWei(amount.toString(), 'Ether')
   }

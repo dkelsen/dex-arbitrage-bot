@@ -1,3 +1,5 @@
 /node_modules
 /build
 .env
+/tmp
+.DS_Store

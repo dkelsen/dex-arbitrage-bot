@@ -30,4 +30,4 @@ Details on how to interact with a contract through the console can by found in t
 ```
 npm test <Network Name>
 ```
-By default, Truffle will run tests on the network `development`. A full list of available networks can be found in `truffle-config.js`
+By default, Truffle will run tests on the network `development`. A full list of available networks can be found in `truffle-config.js`.
