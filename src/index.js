@@ -94,11 +94,13 @@ const checkMarkets = async () => {
   console.log(`Fetching market data @ ${now()} ...\n`)
   checkingMarkets = true
 
-  checkPairs({ arbitrageOrder: ['WETH', 'CEL', 'WETH']})
-  checkPairs({ arbitrageOrder: ['WETH', 'WBTC', 'WETH']})
-  checkPairs({ arbitrageOrder: ['WETH', 'SWAP', 'WETH']})
-  checkPairs({ arbitrageOrder: ['WETH', 'MAHA', 'WETH']})
-  checkPairs({ arbitrageOrder: ['WETH', '1INCH', 'WETH']})
+  /* Limit To 4 Pairs On 3 Second Interval 
+   * ZeroEx Blocks Too Frequent Requests
+   */
+  checkPairs({ arbitrageOrder: ['WETH', 'USDT', 'WETH']})
+  checkPairs({ arbitrageOrder: ['WETH', 'DAI', 'WETH']})
+  checkPairs({ arbitrageOrder: ['WETH', 'USDC', 'WETH']})
+  checkPairs({ arbitrageOrder: ['WETH', 'SUSHI', 'WETH']})
   
   checkingMarkets = false
 }
