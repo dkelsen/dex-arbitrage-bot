@@ -3,7 +3,7 @@ import fetch from 'node-fetch'
 import Web3 from 'web3'
 import { InfuraProvider } from '@ethersproject/providers'
 import { getNetwork } from '@ethersproject/networks'
-import { 
+import {
   ChainId,
   Token,
   Fetcher,
@@ -13,7 +13,7 @@ import {
   TradeType
 } from '@uniswap/sdk'
 
-import { 
+import {
   ASSET_ADDRESSES,
   EXCHANGE_ADDRESSES,
   getZeroExOrderTuple,
@@ -76,19 +76,27 @@ const ONE_SPLIT_PARTS = 10
 const ONE_SPLIT_FLAGS = 0
 const oneSplitContract = new web3.eth.Contract(ONE_SPLIT_ABI, EXCHANGE_ADDRESSES.ONE_SPLIT)
 export const fetchOneSplitData = async ({ fromToken, toToken, amount }) => {
-  const data = await oneSplitContract.methods.getExpectedReturn(fromToken, toToken, amount, ONE_SPLIT_PARTS, ONE_SPLIT_FLAGS).call()
-  return data
+  try {
+    const data = await oneSplitContract.methods.getExpectedReturn(fromToken, toToken, amount, ONE_SPLIT_PARTS, ONE_SPLIT_FLAGS).call()
+    return data
+  } catch (error) {
+    console.log(error)
+  }
 }
 
 /* Uniswap Functions */
 const chainId = ChainId.MAINNET
-const network = new InfuraProvider(getNetwork(chainId), process.env.INFURA_PROJECT_ID)
+const network = new InfuraProvider(null, process.env.INFURA_PROJECT_ID)
 export const getUniswapExecutionPrice = async (baseToken, quoteToken, tradeAmount) => {
-  const base = new Token(chainId, ASSET_ADDRESSES[baseToken], getTokenDecimals(baseToken))
-  const quote = new Token(chainId, ASSET_ADDRESSES[quoteToken], getTokenDecimals(baseToken))
-  const pair = await Fetcher.fetchPairData(quote, base, network)
-  const route = await new Route([pair], base)
-  const trade = new Trade(route, new TokenAmount(base, tradeAmount), TradeType.EXACT_INPUT)
+  try {
+    const base = new Token(chainId, ASSET_ADDRESSES[baseToken], getTokenDecimals(baseToken))
+    const quote = new Token(chainId, ASSET_ADDRESSES[quoteToken], getTokenDecimals(baseToken))
+    const pair = await Fetcher.fetchPairData(quote, base, network)
+    const route = await new Route([pair], base)
+    const trade = new Trade(route, new TokenAmount(base, tradeAmount), TradeType.EXACT_INPUT)
 
-  return trade
+    return trade
+  } catch (error) {
+    console.log(error)
+  }
 }
