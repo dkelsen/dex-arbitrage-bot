@@ -2,12 +2,18 @@ import 'dotenv/config'
 import fetch from 'node-fetch'
 import Web3 from 'web3'
 
-import { ASSET_ADDRESSES, EXCHANGE_ADDRESSES } from './utils'
+import { 
+  ASSET_ADDRESSES,
+  EXCHANGE_ADDRESSES,
+  getZeroExOrderTuple
+} from './utils'
 import ONE_SPLIT_ABI from './abis/oneSplit.json'
+import ZRX_EXCHANGE_ABI from './abis/zrx.json'
 
 /* Setup For Web3 */
 const web3 = new Web3(process.env.RPC_URL)
 
+/* ZeroEx Functions */
 export const checkZrxOrderBook = async (
   baseAssetSymbol /* What I Want To Sell */,
   quoteAssetSymbol /* What I Want To Buy */
@@ -33,6 +39,27 @@ perPage=1000
   return zrxData.bids.records
 }
 
+const checkedZrxOrders = []
+const zrxExchangeContract = new web3.eth.Contract(ZRX_EXCHANGE_ABI, EXCHANGE_ADDRESSES.ZRX)
+export const isIrrelevantZeroExOrder = async (zrxOrder) => {
+  const orderId = JSON.stringify(zrxOrder)
+
+  if (checkedZrxOrders.includes(orderId)) return true
+  checkedZrxOrders.push(orderId)
+
+  if (
+    zrxOrder.makerFee.toString() !== '0' ||
+    zrxOrder.takerFee.toString() !== '0'
+  ) return true
+
+  const orderTuple = getZeroExOrderTuple(zrxOrder)
+  const orderInfo = await zrxExchangeContract.methods.getOrderInfo(orderTuple).call()
+  if (orderInfo.orderTakerAssetFilledAmount.toString() !== '0') return true
+
+  return false
+}
+
+/* OneSplit Functions */
 const ONE_SPLIT_PARTS = 10
 const ONE_SPLIT_FLAGS = 0
 const oneSplitContract = new web3.eth.Contract(ONE_SPLIT_ABI, EXCHANGE_ADDRESSES.ONE_SPLIT)

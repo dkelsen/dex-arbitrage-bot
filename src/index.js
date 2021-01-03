@@ -2,15 +2,14 @@ import 'dotenv/config'
 import express from 'express'
 import Web3 from 'web3'
 
-import ZRX_EXCHANGE_ABI from './abis/zrx.json'
 import { now, logArbitrageCheck } from './utils'
 import { sendNotificationEmail } from './email'
-import { checkZrxOrderBook, fetchOneSplitData } from './orders'
-import { 
-  ASSET_ADDRESSES,
-  EXCHANGE_ADDRESSES,
-  getZeroExOrderTuple
-} from './utils'
+import {
+  checkZrxOrderBook,
+  fetchOneSplitData,
+  isIrrelevantZeroExOrder
+} from './orders'
+import { ASSET_ADDRESSES } from './utils'
 
 /* Application Setup */
 const app = express()
@@ -18,38 +17,38 @@ const PORT = process.env.PORT
 
 const web3 = new Web3(process.env.RPC_URL)
 web3.eth.accounts.wallet.add(process.env.PRIVATE_KEY)
-const zrxExchangeContract = new web3.eth.Contract(ZRX_EXCHANGE_ABI, EXCHANGE_ADDRESSES.ZRX)
 
 app.listen(PORT, () =>
   console.log(`NodeJS app listening on port ${PORT}!`),
 )
 
 /* Function Definitions */
-const checkedZrxOrders = []
-const checkArbitrage = async ({ bidOrder: { order: zrxOrder }, arbitrageOrder }) => {
-  const orderId = JSON.stringify(zrxOrder)
+const checkOnZeroEx = async ({ arbitrageOrder }) => {
+  let bids = await checkZrxOrderBook(arbitrageOrder[0], arbitrageOrder[1])
+  bids.map(async (bidOrder) => {
+    const zrxOrder = bidOrder.order
+    if (await isIrrelevantZeroExOrder(zrxOrder)) return
 
-  /* Skip These Orders */
-  if (checkedZrxOrders.includes(orderId)) return false
-  checkedZrxOrders.push(orderId)
+    const isArbitrage = await checkArbitrage({
+      makerAssetAmount: zrxOrder.makerAssetAmount,
+      takerAssetAmount: zrxOrder.takerAssetAmount,
+      arbitrageOrder
+    })
 
-  if (
-    zrxOrder.makerFee.toString() !== '0' ||
-    zrxOrder.takerFee.toString() !== '0'
-  ) return false
+    if (isArbitrage) console.log("Arbitrage Found!")
+  })
+}
 
-  const orderTuple = getZeroExOrderTuple(zrxOrder)
-  const orderInfo = await zrxExchangeContract.methods.getOrderInfo(orderTuple).call()
-  if (orderInfo.orderTakerAssetFilledAmount.toString() !== '0') return false
+const checkArbitrage = async ({ makerAssetAmount, takerAssetAmount, arbitrageOrder }) => {
 
   const oneSplitData = await fetchOneSplitData({
     fromToken: ASSET_ADDRESSES[arbitrageOrder[1]],
     toToken: ASSET_ADDRESSES[arbitrageOrder[2]],
-    amount: zrxOrder.makerAssetAmount,
+    amount: makerAssetAmount,
   })
 
   /* Asset Amount At Start And End Of Potential Trade */
-  const inputAssetAmount = new web3.utils.BN(zrxOrder.takerAssetAmount)
+  const inputAssetAmount = new web3.utils.BN(takerAssetAmount)
   const outputAssetAmount = new web3.utils.BN(oneSplitData.returnAmount)
   const gasPrice = new web3.utils.BN(web3.utils.toWei(process.env.GAS_PRICE.toString(), 'Gwei'))
   const estimatedGas = new web3.utils.BN(process.env.ESTIMATED_GAS)
@@ -74,13 +73,9 @@ const checkArbitrage = async ({ bidOrder: { order: zrxOrder }, arbitrageOrder })
   return isProfitable
 }
 
-const checkPairs = async ({ arbitrageOrder }) => {
+const checkPairs = async ({ arbitrageOrder, exchangeOrder }) => {
   try {
-    let bids = await checkZrxOrderBook(arbitrageOrder[0], arbitrageOrder[1])
-    bids.map(async (bidOrder) => {
-      const isArbitrage = await checkArbitrage({ bidOrder, arbitrageOrder })
-      if (isArbitrage) console.log("Arbitrage Found!")
-    })
+    if (exchangeOrder[0] === 'ZeroEx') checkOnZeroEx({ arbitrageOrder })
   } catch (error) {
     console.error(error)
     checkingMarkets = false
@@ -97,11 +92,11 @@ const checkMarkets = async () => {
   /* Limit To 4 Pairs On 3 Second Interval 
    * ZeroEx Blocks Too Frequent Requests
    */
-  checkPairs({ arbitrageOrder: ['WETH', 'USDT', 'WETH']})
-  checkPairs({ arbitrageOrder: ['WETH', 'DAI', 'WETH']})
-  checkPairs({ arbitrageOrder: ['WETH', 'USDC', 'WETH']})
-  checkPairs({ arbitrageOrder: ['WETH', 'SUSHI', 'WETH']})
-  
+  checkPairs({ arbitrageOrder: ['WETH', 'USDT', 'WETH'], exchangeOrder: ['ZeroEx', 'OneInch'] })
+  checkPairs({ arbitrageOrder: ['WETH', 'DAI', 'WETH'], exchangeOrder: ['ZeroEx', 'OneInch'] })
+  checkPairs({ arbitrageOrder: ['WETH', 'USDC', 'WETH'], exchangeOrder: ['ZeroEx', 'OneInch'] })
+  checkPairs({ arbitrageOrder: ['WETH', 'SUSHI', 'WETH'], exchangeOrder: ['ZeroEx', 'OneInch'] })
+
   checkingMarkets = false
 }
 
