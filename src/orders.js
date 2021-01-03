@@ -1,11 +1,23 @@
 import 'dotenv/config'
 import fetch from 'node-fetch'
 import Web3 from 'web3'
+import { InfuraProvider } from '@ethersproject/providers'
+import { getNetwork } from '@ethersproject/networks'
+import { 
+  ChainId,
+  Token,
+  Fetcher,
+  Trade,
+  Route,
+  TokenAmount,
+  TradeType
+} from '@uniswap/sdk'
 
 import { 
   ASSET_ADDRESSES,
   EXCHANGE_ADDRESSES,
-  getZeroExOrderTuple
+  getZeroExOrderTuple,
+  getTokenDecimals
 } from './utils'
 import ONE_SPLIT_ABI from './abis/oneSplit.json'
 import ZRX_EXCHANGE_ABI from './abis/zrx.json'
@@ -21,8 +33,8 @@ export const checkZrxOrderBook = async (
   /* Worth Of Base Asset In Quote Asset:
    * Example: DAI/WETH - How much is 1 DAI worth in ETH?
    */
-  const baseAssetAddress = ASSET_ADDRESSES[baseAssetSymbol].substring(2, 42)
-  const quoteAssetAddress = ASSET_ADDRESSES[quoteAssetSymbol].substring(2, 42)
+  const baseAssetAddress = ASSET_ADDRESSES[baseAssetSymbol].substring(2, 42).toLowerCase()
+  const quoteAssetAddress = ASSET_ADDRESSES[quoteAssetSymbol].substring(2, 42).toLowerCase()
 
   const queryUrl = `
     https://api.0x.org/sra/v3/orderbook?\
@@ -66,4 +78,17 @@ const oneSplitContract = new web3.eth.Contract(ONE_SPLIT_ABI, EXCHANGE_ADDRESSES
 export const fetchOneSplitData = async ({ fromToken, toToken, amount }) => {
   const data = await oneSplitContract.methods.getExpectedReturn(fromToken, toToken, amount, ONE_SPLIT_PARTS, ONE_SPLIT_FLAGS).call()
   return data
+}
+
+/* Uniswap Functions */
+const chainId = ChainId.MAINNET
+const network = new InfuraProvider(getNetwork(chainId), process.env.INFURA_PROJECT_ID)
+export const getUniswapExecutionPrice = async (baseToken, quoteToken, tradeAmount) => {
+  const base = new Token(chainId, ASSET_ADDRESSES[baseToken], getTokenDecimals(baseToken))
+  const quote = new Token(chainId, ASSET_ADDRESSES[quoteToken], getTokenDecimals(baseToken))
+  const pair = await Fetcher.fetchPairData(quote, base, network)
+  const route = await new Route([pair], base)
+  const trade = new Trade(route, new TokenAmount(base, tradeAmount), TradeType.EXACT_INPUT)
+
+  return trade
 }

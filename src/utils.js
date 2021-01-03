@@ -1,20 +1,20 @@
 import moment from 'moment-timezone'
 
 export const ASSET_ADDRESSES = {
-  DAI: '0x6b175474e89094c44da98b954eedeac495271d0f',
-  WETH: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
-  USDC: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+  DAI: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+  WETH: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+  USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
   SAI: '0x89d24A6b4CcB1B6fAA2625fE562bDD9a23260359',
-  CEL: '0xaaaebe6fe48e54f431b0c390cfaf0b017d09d42d',
-  WBTC: '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
-  SWAP: '0xcc4304a31d09258b0029ea7fe63d032f52e44efe',
-  MAHA: '0xb4d930279552397bba2ee473229f89ec245bc365',
-  '1INCH': '0x111111111117dc0aa78b770fa6a738034120c302',
-  USDT: '0xdac17f958d2ee523a2206206994597c13d831ec7',
-  SUSHI: '0x6b3595068778dd592e39a122f4f5a5cf09c90fe2',
-  UNI: '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984',
-  YFI: '0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e',
-  SNX: '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f'
+  CEL: '0xaaAEBE6Fe48E54f431b0C390CfaF0b017d09D42d',
+  WBTC: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
+  SWAP: '0xCC4304A31d09258b0029eA7FE63d032f52e44EFe',
+  MAHA: '0xB4d930279552397bbA2ee473229f89Ec245bc365',
+  USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+  SUSHI: '0x6B3595068778DD592e39A122f4f5a5cF09C90fE2',
+  UNI: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
+  YFI: '0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e',
+  SNX: '0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F',
+  LINK: '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 }
 
 export const EXCHANGE_ADDRESSES = {
@@ -36,14 +36,27 @@ export const displayTokens = (amount, symbol, web3) => {
   switch (symbol) {
     case 'CEL': /* 4 decimals */
       return (new web3.utils.BN(amount.toString())).div(new web3.utils.BN(1e4))
-    case 'USDC': /* 6 decimals */
-      return web3.utils.fromWei(amount.toString(), 'picoether')
+    case 'USDC':
     case 'USDT': /* 6 decimals */
       return web3.utils.fromWei(amount.toString(), 'picoether')
     case 'WBTC': /* 8 decimals */
       return (new web3.utils.BN(amount.toString())).div(new web3.utils.BN(1e8))
     default: /* 18 decimals */
       return web3.utils.fromWei(amount.toString(), 'Ether')
+  }
+}
+
+export const getTokenDecimals = (tokenSymbol) => {
+  switch (tokenSymbol) {
+    case 'CEL':
+      return 4
+    case 'USDC':
+    case 'USDT':
+      return 6
+    case 'WBTC':
+      return 8
+    default:
+      return 18
   }
 }
 

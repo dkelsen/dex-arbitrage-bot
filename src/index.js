@@ -7,7 +7,8 @@ import { sendNotificationEmail } from './email'
 import {
   checkZrxOrderBook,
   fetchOneSplitData,
-  isIrrelevantZeroExOrder
+  isIrrelevantZeroExOrder,
+  getUniswapExecutionPrice
 } from './orders'
 import { ASSET_ADDRESSES } from './utils'
 
@@ -39,6 +40,22 @@ const checkOnZeroEx = async ({ arbitrageOrder }) => {
   })
 }
 
+const checkOnUniswap = async ({ arbitrageOrder }) => {
+  const { inputAmount, outputAmount } = await getUniswapExecutionPrice(
+    arbitrageOrder[0],
+    arbitrageOrder[1],
+    web3.utils.toWei('100', 'Ether')
+  )
+
+  const isArbitrage = await checkArbitrage({
+    makerAssetAmount: String(outputAmount.numerator),
+    takerAssetAmount: String(inputAmount.numerator),
+    arbitrageOrder
+  })
+
+  if (isArbitrage) console.log("Arbitrage Found!")
+}
+
 const checkArbitrage = async ({ makerAssetAmount, takerAssetAmount, arbitrageOrder }) => {
 
   const oneSplitData = await fetchOneSplitData({
@@ -68,7 +85,7 @@ const checkArbitrage = async ({ makerAssetAmount, takerAssetAmount, arbitrageOrd
 
   /* Logging And Reporting */
   logArbitrageCheck(loggingInput)
-  if (isProfitable) sendNotificationEmail(loggingInput)
+  if (isProfitable && process.env.NODE_ENV !== 'development') sendNotificationEmail(loggingInput)
 
   return isProfitable
 }
@@ -76,6 +93,7 @@ const checkArbitrage = async ({ makerAssetAmount, takerAssetAmount, arbitrageOrd
 const checkPairs = async ({ arbitrageOrder, exchangeOrder }) => {
   try {
     if (exchangeOrder[0] === 'ZeroEx') checkOnZeroEx({ arbitrageOrder })
+    if (exchangeOrder[0] === 'Uniswap') checkOnUniswap({ arbitrageOrder })
   } catch (error) {
     console.error(error)
     checkingMarkets = false
@@ -92,10 +110,12 @@ const checkMarkets = async () => {
   /* Limit To 4 Pairs On 3 Second Interval 
    * ZeroEx Blocks Too Frequent Requests
    */
-  checkPairs({ arbitrageOrder: ['WETH', 'USDT', 'WETH'], exchangeOrder: ['ZeroEx', 'OneInch'] })
-  checkPairs({ arbitrageOrder: ['WETH', 'DAI', 'WETH'], exchangeOrder: ['ZeroEx', 'OneInch'] })
-  checkPairs({ arbitrageOrder: ['WETH', 'USDC', 'WETH'], exchangeOrder: ['ZeroEx', 'OneInch'] })
-  checkPairs({ arbitrageOrder: ['WETH', 'SUSHI', 'WETH'], exchangeOrder: ['ZeroEx', 'OneInch'] })
+  checkPairs({ arbitrageOrder: ['WETH', 'WBTC', 'WETH'], exchangeOrder: ['Uniswap', 'OneInch'] })
+  checkPairs({ arbitrageOrder: ['WETH', 'CEL', 'WETH'], exchangeOrder: ['Uniswap', 'OneInch'] })
+  checkPairs({ arbitrageOrder: ['WETH', 'LINK', 'WETH'], exchangeOrder: ['Uniswap', 'OneInch'] })
+  checkPairs({ arbitrageOrder: ['WETH', 'YFI', 'WETH'], exchangeOrder: ['Uniswap', 'OneInch'] })
+  checkPairs({ arbitrageOrder: ['WETH', 'DAI', 'WETH'], exchangeOrder: ['Uniswap', 'OneInch'] })
+  checkPairs({ arbitrageOrder: ['WETH', 'USDC', 'WETH'], exchangeOrder: ['Uniswap', 'OneInch'] })
 
   checkingMarkets = false
 }
