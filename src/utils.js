@@ -63,6 +63,7 @@ export const getTokenDecimals = (tokenSymbol) => {
 export const logArbitrageCheck = ({
   isProfitable,
   arbitrageOrder,
+  exchangeOrder,
   inputAssetAmount,
   outputAssetAmount,
   netProfit,
@@ -71,7 +72,7 @@ export const logArbitrageCheck = ({
   console.table([{
     'Profitable?': isProfitable,
     'Arbitrage Order': arbitrageOrder.join(', ').padEnd(17, ' '),
-    'Exchange Order': 'ZRX, 1Split',
+    'Exchange Order': exchangeOrder.join(', ').padEnd(16, ' '),
     'Input': displayTokens(inputAssetAmount, arbitrageOrder[0], web3).padEnd(24, ' '),
     'Output': displayTokens(outputAssetAmount, arbitrageOrder[0], web3).padEnd(24, ' '),
     'Profit': displayTokens(netProfit.toString(), arbitrageOrder[0], web3).padEnd(24, ' '),

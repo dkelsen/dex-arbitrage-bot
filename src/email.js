@@ -15,6 +15,7 @@ const nodemailerMailgun = nodemailer.createTransport(mailgun(mailConfiguration))
 
 export const sendNotificationEmail = ({
   arbitrageOrder,
+  exchangeOrder,
   inputAssetAmount,
   outputAssetAmount,
   netProfit,
@@ -27,7 +28,7 @@ export const sendNotificationEmail = ({
     html: `
       <h2>Arbitrage Report</h2>
       <p><b>Arbitrage Order:</b> ${arbitrageOrder.join(', ')}</p>
-      <p><b>Exchange Order:</b> ZRX, 1Split</p>
+      <p><b>Exchange Order:</b> ${exchangeOrder.join(', ')}</p>
       <p><b>Input:</b> ${displayTokens(inputAssetAmount, arbitrageOrder[0], web3)}</p>
       <p><b>Output:</b> ${displayTokens(outputAssetAmount, arbitrageOrder[0], web3)}</p>
       <p><b>Profit:</b> ${displayTokens(netProfit.toString(), arbitrageOrder[0], web3)}</p>

@@ -24,39 +24,51 @@ app.listen(PORT, () =>
 )
 
 /* Function Definitions */
-const checkOnZeroEx = async ({ arbitrageOrder }) => {
+const checkOnZeroEx = async ({ arbitrageOrder, exchangeOrder }) => {
   let bids = await checkZrxOrderBook(arbitrageOrder[0], arbitrageOrder[1])
   bids.map(async (bidOrder) => {
     const zrxOrder = bidOrder.order
     if (await isIrrelevantZeroExOrder(zrxOrder)) return
 
+    const exchangeFees = (new web3.utils.BN(web3.utils.toWei(process.env.GAS_PRICE.toString(), 'Gwei'))).mul(new web3.utils.BN('70000'))
     const isArbitrage = await checkArbitrage({
       makerAssetAmount: zrxOrder.makerAssetAmount,
       takerAssetAmount: zrxOrder.takerAssetAmount,
-      arbitrageOrder
+      arbitrageOrder,
+      exchangeOrder,
+      exchangeFees
     })
 
     if (isArbitrage) console.log("Arbitrage Found!")
   })
 }
 
-const checkOnUniswap = async ({ arbitrageOrder }) => {
+const checkOnUniswap = async ({ arbitrageOrder, exchangeOrder }) => {
   const { inputAmount, outputAmount } = await getUniswapExecutionPrice(
     arbitrageOrder[0],
     arbitrageOrder[1],
     web3.utils.toWei('100', 'Ether')
   )
 
+  const exchangeFees = (new web3.utils.BN(String(inputAmount.numerator))).mul(new web3.utils.BN('3')).div(new web3.utils.BN('1000'))
   const isArbitrage = await checkArbitrage({
     makerAssetAmount: String(outputAmount.numerator),
     takerAssetAmount: String(inputAmount.numerator),
-    arbitrageOrder
+    arbitrageOrder,
+    exchangeOrder,
+    exchangeFees
   })
 
   if (isArbitrage) console.log("Arbitrage Found!")
 }
 
-const checkArbitrage = async ({ makerAssetAmount, takerAssetAmount, arbitrageOrder }) => {
+const checkArbitrage = async ({ 
+  makerAssetAmount,
+  takerAssetAmount,
+  arbitrageOrder,
+  exchangeOrder,
+  exchangeFees = new web3.utils.BN(0) 
+}) => {
 
   const oneSplitData = await fetchOneSplitData({
     fromToken: ASSET_ADDRESSES[arbitrageOrder[1]],
@@ -71,12 +83,13 @@ const checkArbitrage = async ({ makerAssetAmount, takerAssetAmount, arbitrageOrd
   const estimatedGas = new web3.utils.BN(process.env.ESTIMATED_GAS)
   let estimatedGasFee = (gasPrice).mul(estimatedGas) /* NEEDS TO BE ADJUSTED WHEN NOT (W)ETH */
 
-  const netProfit = outputAssetAmount.sub(inputAssetAmount).sub(estimatedGasFee)
+  const netProfit = outputAssetAmount.sub(inputAssetAmount).sub(estimatedGasFee).sub(exchangeFees)
   const isProfitable = netProfit.gt(new web3.utils.BN(0))
 
   const loggingInput = {
     isProfitable,
     arbitrageOrder,
+    exchangeOrder,
     inputAssetAmount,
     outputAssetAmount,
     netProfit,
@@ -92,8 +105,8 @@ const checkArbitrage = async ({ makerAssetAmount, takerAssetAmount, arbitrageOrd
 
 const checkPairs = async ({ arbitrageOrder, exchangeOrder }) => {
   try {
-    if (exchangeOrder[0] === 'ZeroEx') checkOnZeroEx({ arbitrageOrder })
-    if (exchangeOrder[0] === 'Uniswap') checkOnUniswap({ arbitrageOrder })
+    if (exchangeOrder[0] === 'ZeroEx') checkOnZeroEx({ arbitrageOrder, exchangeOrder })
+    if (exchangeOrder[0] === 'Uniswap') checkOnUniswap({ arbitrageOrder, exchangeOrder })
   } catch (error) {
     console.error(error)
     checkingMarkets = false
