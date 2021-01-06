@@ -11,7 +11,7 @@ import {
   isIrrelevantZeroExOrder,
   getUniswapExecutionPrice
 } from './orders'
-import { ASSET_ADDRESSES } from './utils'
+import { ASSET_ADDRESSES, calculateSlippage } from './utils'
 
 /* Application Setup */
 const app = express()
@@ -19,6 +19,7 @@ const PORT = process.env.PORT
 
 const web3 = new Web3(process.env.RPC_URL)
 web3.eth.accounts.wallet.add(process.env.PRIVATE_KEY)
+const flashLoanAmount = web3.utils.toWei(process.env.FLASH_LOAN_AMOUNT, 'Ether')
 
 app.listen(PORT, () =>
   console.log(`NodeJS app listening on port ${PORT}!`),
@@ -65,10 +66,11 @@ const checkOnUniswap = async ({ arbitrageOrder, exchangeOrder }) => {
     const { inputAmount, outputAmount } = await getUniswapExecutionPrice(
       arbitrageOrder[0],
       arbitrageOrder[1],
-      web3.utils.toWei('100', 'Ether')
+      flashLoanAmount
     )
 
-    const exchangeFees = estimatedGasPrice.mul(new web3.utils.BN('3')).div(new web3.utils.BN('1000'))
+    const exchangeFees = (new web3.utils.BN(flashLoanAmount)).mul(new web3.utils.BN('3')).div(new web3.utils.BN('1000'))
+
     const isArbitrage = await checkArbitrage({
       makerAssetAmount: String(outputAmount.numerator),
       takerAssetAmount: String(inputAmount.numerator),
@@ -91,19 +93,20 @@ const checkArbitrage = async ({
   exchangeFees = new web3.utils.BN(0)
 }) => {
 
+  const makerAssetAmountWithSlippage = calculateSlippage(makerAssetAmount, web3).toString()
   const oneSplitData = await fetchOneSplitData({
     fromToken: ASSET_ADDRESSES[arbitrageOrder[1]],
     toToken: ASSET_ADDRESSES[arbitrageOrder[2]],
-    amount: makerAssetAmount,
+    amount: makerAssetAmountWithSlippage,
   })
 
   /* Asset Amount At Start And End Of Potential Trade */
   const inputAssetAmount = new web3.utils.BN(takerAssetAmount)
-  const outputAssetAmount = new web3.utils.BN(oneSplitData.returnAmount)
+  const outputAssetAmountWithSlippage = calculateSlippage(oneSplitData.returnAmount, web3)
   const estimatedGas = new web3.utils.BN(process.env.ESTIMATED_GAS)
   let estimatedGasFee = (estimatedGasPrice).mul(estimatedGas)
 
-  const netProfit = outputAssetAmount.sub(inputAssetAmount).sub(estimatedGasFee).sub(exchangeFees)
+  const netProfit = outputAssetAmountWithSlippage.sub(inputAssetAmount).sub(estimatedGasFee).sub(exchangeFees)
   const isProfitable = netProfit.gt(new web3.utils.BN(0))
 
   const loggingInput = {
@@ -111,7 +114,7 @@ const checkArbitrage = async ({
     arbitrageOrder,
     exchangeOrder,
     inputAssetAmount,
-    outputAssetAmount,
+    outputAssetAmount: outputAssetAmountWithSlippage,
     netProfit,
     web3
   }
@@ -142,15 +145,13 @@ const checkMarkets = async () => {
 
   /* Limit To 4 Pairs On 3 Second Interval 
    * ZeroEx Blocks Too Frequent Requests
-   */
   checkPairs({ arbitrageOrder: ['WETH', 'WBTC', 'WETH'], exchangeOrder: ['ZeroEx', 'OneInch'] })
   checkPairs({ arbitrageOrder: ['WETH', 'USDT', 'WETH'], exchangeOrder: ['ZeroEx', 'OneInch'] })
   checkPairs({ arbitrageOrder: ['WETH', 'USDC', 'WETH'], exchangeOrder: ['ZeroEx', 'OneInch'] })
   checkPairs({ arbitrageOrder: ['WETH', 'DAI', 'WETH'], exchangeOrder: ['ZeroEx', 'OneInch'] })
+  */
 
   /* Uniswap */
-  checkPairs({ arbitrageOrder: ['WETH', 'WBTC', 'WETH'], exchangeOrder: ['Uniswap', 'OneInch'] })
-  checkPairs({ arbitrageOrder: ['WETH', 'DAI', 'WETH'], exchangeOrder: ['Uniswap', 'OneInch'] })
   checkPairs({ arbitrageOrder: ['WETH', 'USDC', 'WETH'], exchangeOrder: ['Uniswap', 'OneInch'] })
 
   checkingMarkets = false

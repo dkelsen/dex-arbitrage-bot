@@ -99,6 +99,10 @@ export const getZeroExOrderTuple = (zeroExOrder) => {
   ]
 }
 
-export const calculateSlippage = (orderAmount) => {
-  return (new web3.utils.BN(orderAmount)).mul(new web3.utils.BN('995')).div(new web3.utils.BN('1000')).toString()
+export const calculateSlippage = (orderAmount, web3) => {
+  return (new web3.utils.BN(orderAmount)).mul(new web3.utils.BN('995')).div(new web3.utils.BN('1000'))
+}
+
+export const logEvents = (logs) => {
+  logs.map(log => console.log(log.args['0'], '-', log.args['1'].toString()))
 }

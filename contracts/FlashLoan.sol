@@ -129,6 +129,7 @@ abstract contract DyDxFlashLoan is ICallee {
     bytes memory _zeroExSignature
 	) external onlyOwner {
 		IERC20(_loanToken).approve(address(soloMargin), uint256(-1));
+    uint256 balanceBeforeLoan = IERC20(_loanToken).balanceOf(address(this));
 
 		Actions.ActionArgs[] memory operations = new Actions.ActionArgs[](3);
 
@@ -162,6 +163,7 @@ abstract contract DyDxFlashLoan is ICallee {
 			otherAddress: address(this),
 			otherAccountId: 0,
 			data: abi.encode(
+        balanceBeforeLoan,
 				_loanAmount,
         _loanToken,
         _arbitrageToken,

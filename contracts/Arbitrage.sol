@@ -113,7 +113,7 @@ contract Arbitrage is DyDxFlashLoan {
 		WETH_CONTRACT.approve(ZRX_STAKING_PROXY, uint256(-1));
 	}
 
-  event LogArbitrage(string description, uint balance);
+	event LogArbitrage(string description, uint256 balance);
 
 	/* Function Invoked By DyDx */
 	function callFunction(
@@ -122,6 +122,7 @@ contract Arbitrage is DyDxFlashLoan {
 		bytes memory _data
 	) external override onlyDyDx {
 		(
+			uint256 balanceBeforeLoan,
 			uint256 loanAmount,
 			address loanToken,
 			address arbitrageToken,
@@ -135,6 +136,7 @@ contract Arbitrage is DyDxFlashLoan {
 				_data,
 				(
 					uint256,
+					uint256,
 					address,
 					address,
 					uint256,
@@ -145,8 +147,12 @@ contract Arbitrage is DyDxFlashLoan {
 				)
 			);
 
+		uint256 balanceAfterLoan = IERC20(loanToken).balanceOf(address(this));
+    emit LogArbitrage("balanceBeforeLoan", balanceBeforeLoan);
+    emit LogArbitrage("balanceAfterLoan", balanceAfterLoan);
+
 		require(
-			IERC20(loanToken).balanceOf(address(this)) > loanAmount + 2,
+			balanceAfterLoan - balanceBeforeLoan == loanAmount,
 			"Contract did not receive the flash loan."
 		);
 
@@ -159,7 +165,7 @@ contract Arbitrage is DyDxFlashLoan {
 				loanAmount
 			);
 
-    emit LogArbitrage("makerAssetFilledAmount", makerAssetFilledAmount);
+		emit LogArbitrage("makerAssetFilledAmount", makerAssetFilledAmount);
 
 		swapOnOneSplit(
 			arbitrageToken,
@@ -169,9 +175,11 @@ contract Arbitrage is DyDxFlashLoan {
 			oneSplitDistribution
 		);
 
-		uint256 loanBalance = IERC20(loanToken).balanceOf(address(this));
+		uint256 balanceAfterTrade = IERC20(loanToken).balanceOf(address(this));
+		emit LogArbitrage("balanceAfterTrade", balanceAfterTrade);
+
 		require(
-			loanBalance >= loanAmount,
+			balanceAfterTrade >= balanceAfterLoan,
 			"Insufficient funds to repay the flash loan."
 		);
 	}
