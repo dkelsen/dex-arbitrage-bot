@@ -138,7 +138,7 @@ contract('Arbitrage', async (accounts) => {
 
     before(async () => {
       /* Cover ZeroEx WETH Fees */
-      arbitrage = await Arbitrage.new({ value: toEther('0.01') })
+      arbitrage = await Arbitrage.new({ value: toEther('10') })
       contractAddress = arbitrage.address
       etherBalance = wethBalance = daiBalance = 0
 
@@ -147,7 +147,7 @@ contract('Arbitrage', async (accounts) => {
       /* Create A New Fork On Every Test As The Order Will Be Filled In The Blockchain
        * Alternatively: Pick A Random Order Instead Of Order '0'
        */
-      const { order } = allOrders[0]
+      const { order } = allOrders[2]
       zeroExOrder = order
       zeroExOrderTuple = getZeroExOrderTuple(zeroExOrder)
 
@@ -160,46 +160,27 @@ contract('Arbitrage', async (accounts) => {
 
     it('Should fail as expected', async () => {
       try {
-        await arbitrage.initiateFlashLoan(
-          ASSET_ADDRESSES.DAI,
-          ASSET_ADDRESSES.WETH,
-          toEther('10000'),
-          oneSplitData.returnAmount,
-          oneSplitData.distribution,
-          zeroExOrderTuple,
-          zeroExOrder.takerAssetAmount,
-          zeroExOrder.signature
-        )
-      } catch (error) {
-        assert.include(error.message, 'Contract did not receive the flash loan.')
-        return
-      }
-      assert(false)
-    })
-
-    it('Should execute properly', async () => {
-      try {
         /* Cover Flash Loan Deficit */
-        await arbitrage.convertEtherToWeth({ from: unlockedEtherAddress, value: toEther('10000') })
+        await arbitrage.convertEtherToWeth({ from: unlockedEtherAddress, value: toEther('1000') })
         /* Take 1% Slippage Into Account On OneSplit */
         const minReturnWtihSplippage = calculateSlippage(zeroExOrder.returnAmount, web3).toString()
-        const startWethBalance = await arbitrage.getTokenBalance(ASSET_ADDRESSES.WETH)
-        await arbitrage.initiateFlashLoan(
+
+        const response = await arbitrage.initiateFlashLoan(
           ASSET_ADDRESSES.WETH,
           ASSET_ADDRESSES.DAI,
-          toEther('10000'),
+          toEther('10'),
           minReturnWtihSplippage,
           oneSplitData.distribution,
           zeroExOrderTuple,
           zeroExOrder.takerAssetAmount,
           zeroExOrder.signature
         )
-        wethBalance = await arbitrage.getTokenBalance(ASSET_ADDRESSES.WETH)
-        assert.notEqual(wethBalance.toString(), startWethBalance.toString())
+        logEvents(response.logs)
       } catch (error) {
-        console.log(error)
-        assert(false)
+        assert.include(error.reason, 'Insufficient funds to repay the flash loan.')
+        return
       }
+      assert(false)
     })
   })
 })

@@ -31,3 +31,14 @@ Details on how to interact with a contract through the console can by found in t
 npm test <Network Name>
 ```
 By default, Truffle will run tests on the network `development`. A full list of available networks can be found in `truffle-config.js`.
+
+## Deploy
+In order to deploy this project, the [Heroku CLI](https://devcenter.heroku.com/articles/heroku-cli) needs to be installed.
+```
+$ git push heroku master
+```
+To deploy a branch other than master:
+```
+$ git push heroku <Branch Name>:master
+```
+The server logs can be inspected locally in your terminal with `heroku logs -t`.
