@@ -182,7 +182,7 @@ contract('Arbitrage', async (accounts) => {
         /* Cover Flash Loan Deficit */
         await arbitrage.convertEtherToWeth({ from: unlockedEtherAddress, value: toEther('10000') })
         /* Take 1% Slippage Into Account On OneSplit */
-        const minReturnWtihSplippage = calculateSlippage(zeroExOrder.returnAmount)
+        const minReturnWtihSplippage = calculateSlippage(zeroExOrder.returnAmount, web3).toString()
         const startWethBalance = await arbitrage.getTokenBalance(ASSET_ADDRESSES.WETH)
         await arbitrage.initiateFlashLoan(
           ASSET_ADDRESSES.WETH,
